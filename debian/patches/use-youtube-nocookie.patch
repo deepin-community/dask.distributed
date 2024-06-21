@@ -1,0 +1,32 @@
+From: Diane Trout <diane@ghic.org>
+Date: Sat, 26 Dec 2020 16:55:39 -0800
+Subject: youtube-nocookie is a little more privacy friendly than regular
+ youtube and is a minor change.
+Forwarded: not-needed
+
+---
+ docs/source/diagnosing-performance.rst | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/docs/source/diagnosing-performance.rst
++++ b/docs/source/diagnosing-performance.rst
+@@ -137,7 +137,7 @@
+ 
+     <iframe width="560"
+             height="315"
+-            src="https://www.youtube.com/embed/nTMGbkS761Q"
++            src="https://www.youtube-nocookie.com/embed/nTMGbkS761Q"
+             frameborder="0"
+             allow="autoplay; encrypted-media"
+             allowfullscreen>
+--- a/docs/source/plugins.rst
++++ b/docs/source/plugins.rst
+@@ -104,7 +104,7 @@
+ .. raw:: html
+ 
+     <iframe width="560"
+-            height="315" src="https://www.youtube.com/embed/vF2VItVU5zg?start=468"
++            height="315" src="https://www.youtube-nocookie.com/embed/vF2VItVU5zg?start=468"
+             style="margin: 0 auto 20px auto; display: block;" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+ 
+ .. autoclass:: distributed.diagnostics.plugin.WorkerPlugin

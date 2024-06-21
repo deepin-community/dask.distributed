@@ -1,0 +1,77 @@
+#!/bin/bash
+set -e
+export LC_ALL=C.UTF-8
+export LANG=C.UTF-8
+export PYTEST_OPTIONS="--verbose -r s --timeout-method=signal --timeout=300 --durations=20"
+
+# This is needed for keras, though that dependency doesn't work right now.
+export THEANO_FLAGS="base_compiledir=$(pwd)"
+
+# The dask tests use the google dns servers as a default ipv6 address
+# disable exit on error for this command, as ping's failure indicates
+# that we don't have ipv6
+set +e
+ping6 -c 4 2001:4860:4860::8888 2>&1
+if [ $? -eq 0 ]; then
+    echo "Working ipv6 connectivity"
+else
+    echo "No external ipv6 connectivity"
+    export DISABLE_IPV6=1
+fi
+set -e
+
+cp pyproject.toml conftest.py $AUTOPKGTEST_TMP
+cp distributed/tests/testegg-1.0.0-py3.4.egg $AUTOPKGTEST_TMP
+cp distributed/tests/mytest.pyz $AUTOPKGTEST_TMP
+
+SKIP_TESTS="test_localcluster_get_client \
+  or test_cluster \
+  or test_old_ssh_nprocs_renamed_to_n_workers \
+  or test_nprocs_attribute_is_deprecated \
+  or test_jupyter_server \
+  or test_stack_overflow \
+  or test_task_state_instance_are_garbage_collected \
+  or test_queue_in_task \
+  or test_variable_in_task \
+  or test_spillbuffer_oserror \
+  or test_git_revision \
+  or test_jupyter_idle_timeout_returned \
+  or test_jupyter_idle_timeout \
+  or test_prometheus \
+  or test_prometheus_api_doc \
+  or test_prometheus \
+  or test_process_executor_kills_process \
+  or test_client_worker \
+  or test_steal_twice \
+"
+# FIXME: the following test item is pending resolution of [1].  Deeply
+# nested structures may be generated with dask.distributed profiling
+# code, and since python3.12, somehow the TypeError is not raised
+# anymore.  Probable outcome will be a RecursionError, which may
+# mismatch some expectations downstream.
+#
+# [1]: https://github.com/dask/distributed/issues/8700
+SKIP_TESTS="$SKIP_TESTS or test_deeply_nested_structures"
+
+# FIXME: several tests are tripping on the missing dask_expr raising
+# FutureWarnings on dask.dataframe module import.  Setting configuration
+# option "dataframe.query-planning" option to False will not raise such
+# warning, but the way forward would probably be to package dask_expr.
+HOME="$AUTOPKGTEST_TMP"
+export HOME
+mkdir "${HOME}/.config/"
+echo '{"dataframe": {"query-planning": False}}' > "${HOME}/.config/dask"
+
+for py in $(py3versions -s)
+do
+  cd "$AUTOPKGTEST_TMP"
+  echo "Testing with $py:"
+  $py -m pytest -m "not (avoid_ci or isinstalled or slow)" -k "not ( $SKIP_TESTS )" $PYTEST_OPTIONS --pyargs distributed || true
+  ERR=$?
+  echo Error code $ERR
+  if [ -e ${AUTOPKGTEST_TMP}/.pytest_cache/v/cache/ -a \! -e ${AUTOPKGTEST_TMP}/.pytest_cache/v/cache/lastfailed ]; then
+    echo Tests passed; true;
+  else
+    echo Tests failed; false;
+  fi
+done

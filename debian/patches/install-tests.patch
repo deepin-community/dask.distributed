@@ -1,0 +1,17 @@
+Author: Diane Trout <diane@ghic.org>
+Description: It is far easier to run the autopkgtests
+ if the tests are installed.
+Forwarded: no
+
+--- a/MANIFEST.in
++++ b/MANIFEST.in
+@@ -8,8 +8,8 @@
+ recursive-include distributed *.svg
+ recursive-include distributed *.ico
+ recursive-include distributed *.yaml
++recursive-include distributed *.pem
+ recursive-include docs *.rst
+-recursive-exclude distributed **/tests/*
+ 
+ include setup.py
+ include README.rst

@@ -1,0 +1,13 @@
+Document: python-distributed-doc
+Title: Dask distributed documentation
+Author: Continuum Analytics
+Abstract: Distributed computation documentation
+Section: Programming/Python
+
+Format: HTML
+Index: /usr/share/doc/python-distributed-doc/html/index.html
+Files: /usr/share/doc/python-distributed-doc/html/*.html
+ /usr/share/doc/python-distributed-doc/html/_modules/*.html
+ /usr/share/doc/python-distributed-doc/html/_modules/distributed/*.html
+ /usr/share/doc/python-distributed-doc/html/examples/*.html
+

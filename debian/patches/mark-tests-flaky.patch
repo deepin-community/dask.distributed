@@ -1,0 +1,77 @@
+Description: Mark randomly failing tests as flaky
+
+(I don't know why they're randomly failing)
+
+Author: Rebecca N. Palmer <rebecca_palmer@zoho.com>
+Forwarded: no
+
+--- dask.distributed.orig/distributed/tests/test_steal.py
++++ dask.distributed/distributed/tests/test_steal.py
+@@ -1377,6 +1377,7 @@
+     assert (ntasks_per_worker < ideal * 1.5).all(), (ideal, ntasks_per_worker)
+ 
+ 
++@pytest.mark.flaky(reruns=2, reruns_delay=10)
+ @pytest.mark.parametrize(
+     "cost, ntasks, expect_steal",
+     [
+--- dask.distributed.orig/distributed/comm/tests/test_comms.py
++++ dask.distributed/distributed/comm/tests/test_comms.py
+@@ -1037,6 +1037,7 @@
+         listener.stop()
+ 
+ 
++@pytest.mark.flaky(reruns=2, reruns_delay=10)
+ @gen_test()
+ async def test_tcp_many_listeners(tcp):
+     await check_many_listeners("tcp://127.0.0.1")
+--- dask.distributed.orig/distributed/tests/test_stress.py
++++ dask.distributed/distributed/tests/test_stress.py
+@@ -120,6 +120,7 @@
+         assert await c.compute(z) == 8000884.93
+ 
+ 
++@pytest.mark.flaky(reruns=2, reruns_delay=10)
+ @gen_cluster(
+     nthreads=[("", 1)] * 10,
+     client=True,
+--- dask.distributed.orig/distributed/tests/test_utils_test.py
++++ dask.distributed/distributed/tests/test_utils_test.py
+@@ -936,6 +936,7 @@
+     # `subprocess.TimeoutExpired` if this test breaks.
+ 
+ 
++@pytest.mark.flaky(reruns=2, reruns_delay=10)
+ def test_popen_timeout(capsys):
+     with pytest.raises(subprocess.TimeoutExpired):
+         with popen(
+--- dask.distributed.orig/distributed/tests/test_spans.py
++++ dask.distributed/distributed/tests/test_spans.py
+@@ -863,6 +863,7 @@
+ 
+ @pytest.mark.filterwarnings("ignore:Dask annotations")
+ @gen_cluster(client=True)
++@pytest.mark.xfail(strict=False, reason="Test is flaky")
+ async def test_collections_metadata(c, s, a, b):
+     pd = pytest.importorskip("pandas")
+     dd = pytest.importorskip("dask.dataframe")
+--- dask.distributed.orig/distributed/tests/test_profile.py
++++ dask.distributed/distributed/tests/test_profile.py
+@@ -26,6 +26,7 @@
+ )
+ 
+ 
++@pytest.mark.flaky(reruns=2, reruns_delay=10)
+ def test_basic():
+     def test_g():
+         sleep(0.01)
+--- dask.distributed.orig/distributed/tests/test_client.py
++++ dask.distributed/distributed/tests/test_client.py
+@@ -2251,6 +2251,7 @@
+ 
+ 
+ @gen_cluster()
++@pytest.mark.flaky(reruns=2, reruns_delay=10)
+ async def test_multi_client(s, a, b):
+     async with Client(s.address, asynchronous=True) as f:
+         async with Client(s.address, asynchronous=True) as c:

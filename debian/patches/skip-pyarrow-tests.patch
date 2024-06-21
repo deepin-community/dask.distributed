@@ -1,0 +1,269 @@
+Author: Diane Trout <diane@ghic.org>
+Description: Some tests in this module need pyarrow,
+ which isn't available in Debian.
+Forwarded: no
+
+--- dask.distributed.orig/distributed/shuffle/tests/test_shuffle.py
++++ dask.distributed/distributed/shuffle/tests/test_shuffle.py
+@@ -192,6 +192,7 @@
+     return get_shuffle_run_manager(worker)._active_runs
+ 
+ 
++@pytest.importorskip("pyarrow")
+ @pytest.mark.parametrize("npartitions", [None, 1, 20])
+ @pytest.mark.parametrize("disk", [True, False])
+ @gen_cluster(client=True)
+@@ -241,6 +242,7 @@
+         dd.assert_eq(x, y)
+ 
+ 
++@pytest.importorskip("pyarrow")
+ @pytest.mark.parametrize("npartitions", [None, 1, 20])
+ @gen_cluster(client=True)
+ async def test_shuffle_with_array_conversion(c, s, a, b, npartitions):
+@@ -282,6 +284,7 @@
+         c.compute(df)
+ 
+ 
++@pytest.importorskip("pyarrow")
+ @gen_cluster(client=True)
+ async def test_concurrent(c, s, a, b):
+     df = dask.datasets.timeseries(
+@@ -302,6 +305,7 @@
+     await check_scheduler_cleanup(s)
+ 
+ 
++@pytest.importorskip("pyarrow")
+ @gen_cluster(client=True)
+ async def test_bad_disk(c, s, a, b):
+     df = dask.datasets.timeseries(
+@@ -391,6 +395,7 @@
+     return next(iter(shuffle_ids))
+ 
+ 
++@pytest.importorskip("pyarrow")
+ @gen_cluster(client=True, nthreads=[("", 1)] * 2)
+ async def test_closed_worker_during_transfer(c, s, a, b):
+     df = dask.datasets.timeseries(
+@@ -414,6 +419,7 @@
+     await check_scheduler_cleanup(s)
+ 
+ 
++@pytest.importorskip("pyarrow")
+ @gen_cluster(
+     client=True,
+     nthreads=[("", 1)] * 2,
+@@ -525,6 +531,7 @@
+         await check_scheduler_cleanup(s)
+ 
+ 
++@pytest.importorskip("pyarrow")
+ @gen_cluster(
+     client=True,
+     nthreads=[],
+@@ -563,6 +570,7 @@
+             await fut
+ 
+ 
++@pytest.importorskip("pyarrow")
+ @gen_cluster(client=True, nthreads=[("", 1)] * 2)
+ async def test_closed_input_only_worker_during_transfer(c, s, a, b):
+     def mock_get_worker_for_range_sharding(
+@@ -662,6 +670,7 @@
+         raise RuntimeError("test-exception-on-close")
+ 
+ 
++@pytest.importorskip("pyarrow")
+ @mock.patch(
+     "distributed.shuffle._shuffle.DataFrameShuffleRun",
+     RaiseOnCloseShuffleRun,
+@@ -757,6 +766,7 @@
+     await check_scheduler_cleanup(s)
+ 
+ 
++@pytest.importorskip("pyarrow")
+ @mock.patch(
+     "distributed.shuffle._shuffle.DataFrameShuffleRun",
+     BlockedInputsDoneShuffle,
+@@ -939,6 +949,7 @@
+     await check_scheduler_cleanup(s)
+ 
+ 
++@pytest.importorskip("pyarrow")
+ @gen_cluster(
+     client=True,
+     nthreads=[("", 1)] * 2,
+@@ -993,6 +1004,7 @@
+         await check_scheduler_cleanup(s)
+ 
+ 
++@pytest.importorskip("pyarrow")
+ @gen_cluster(client=True)
+ async def test_heartbeat(c, s, a, b):
+     await a.heartbeat()
+@@ -1362,6 +1374,7 @@
+     await check_scheduler_cleanup(s)
+ 
+ 
++@pytest.importorskip("pyarrow")
+ @pytest.mark.parametrize("wait_until_forgotten", [True, False])
+ @gen_cluster(client=True)
+ async def test_repeat_shuffle_instance(c, s, a, b, wait_until_forgotten):
+@@ -1423,6 +1436,7 @@
+     await check_scheduler_cleanup(s)
+ 
+ 
++@pytest.importorskip("pyarrow")
+ @gen_cluster(client=True, nthreads=[("", 1)])
+ async def test_crashed_worker_after_shuffle(c, s, a):
+     in_event = Event()
+@@ -1469,6 +1483,7 @@
+         await check_scheduler_cleanup(s)
+ 
+ 
++@pytest.importorskip("pyarrow")
+ @gen_cluster(client=True, nthreads=[("", 1)])
+ async def test_crashed_worker_after_shuffle_persisted(c, s, a):
+     async with Nanny(s.address, nthreads=1) as n:
+@@ -1498,6 +1513,7 @@
+         await check_scheduler_cleanup(s)
+ 
+ 
++@pytest.importorskip("pyarrow")
+ @gen_cluster(client=True, nthreads=[("", 1)] * 3)
+ async def test_closed_worker_between_repeats(c, s, w1, w2, w3):
+     df = dask.datasets.timeseries(
+@@ -1532,6 +1548,7 @@
+     await check_scheduler_cleanup(s)
+ 
+ 
++@pytest.importorskip("pyarrow")
+ @gen_cluster(client=True)
+ async def test_new_worker(c, s, a, b):
+     df = dask.datasets.timeseries(
+@@ -1556,6 +1573,7 @@
+         await check_scheduler_cleanup(s)
+ 
+ 
++@pytest.importorskip("pyarrow")
+ @gen_cluster(client=True)
+ async def test_multi(c, s, a, b):
+     left = dask.datasets.timeseries(
+@@ -1611,6 +1629,7 @@
+     assert all(key in a.data for key in y.__dask_keys__())
+ 
+ 
++@pytest.importorskip("pyarrow")
+ @gen_cluster(client=True)
+ async def test_delete_some_results(c, s, a, b):
+     df = dask.datasets.timeseries(
+@@ -1633,6 +1652,7 @@
+     await check_scheduler_cleanup(s)
+ 
+ 
++@pytest.importorskip("pyarrow")
+ @gen_cluster(client=True)
+ async def test_add_some_results(c, s, a, b):
+     df = dask.datasets.timeseries(
+@@ -2010,6 +2030,7 @@
+         return await super().shuffle_receive(*args, **kwargs)
+ 
+ 
++@pytest.importorskip("pyarrow")
+ @pytest.mark.parametrize("wait_until_forgotten", [True, False])
+ @gen_cluster(client=True, nthreads=[("", 1)] * 2)
+ async def test_deduplicate_stale_transfer(c, s, a, b, wait_until_forgotten):
+@@ -2062,6 +2083,7 @@
+         return await super()._barrier(*args, **kwargs)
+ 
+ 
++@pytest.importorskip("pyarrow")
+ @pytest.mark.parametrize("wait_until_forgotten", [True, False])
+ @gen_cluster(client=True, nthreads=[("", 1)] * 2)
+ async def test_handle_stale_barrier(c, s, a, b, wait_until_forgotten):
+@@ -2107,6 +2129,7 @@
+     await check_scheduler_cleanup(s)
+ 
+ 
++@pytest.importorskip("pyarrow")
+ @gen_cluster(client=True, nthreads=[("", 1)])
+ async def test_shuffle_run_consistency(c, s, a):
+     """This test checks the correct creation of shuffle run IDs through the scheduler
+@@ -2378,6 +2401,7 @@
+     await check_scheduler_cleanup(s)
+ 
+ 
++@pytest.importorskip("pyarrow")
+ @gen_cluster(client=True)
+ async def test_handle_null_partitions_2(c, s, a, b):
+     def make_partition(i):
+@@ -2606,6 +2630,7 @@
+         return await super().barrier(*args, **kwargs)
+ 
+ 
++@pytest.importorskip("pyarrow")
+ @mock.patch(
+     "distributed.shuffle._shuffle.DataFrameShuffleRun",
+     BlockedBarrierShuffleRun,
+@@ -2648,6 +2673,7 @@
+         return await super().barrier(id, run_id, consistent)
+ 
+ 
++@pytest.importorskip("pyarrow")
+ @gen_cluster(client=True)
+ async def test_unpack_is_non_rootish(c, s, a, b):
+     with pytest.warns(UserWarning):
+--- dask.distributed.orig/distributed/shuffle/tests/test_merge.py
++++ dask.distributed/distributed/shuffle/tests/test_merge.py
+@@ -68,6 +68,7 @@
+             await c.compute(dd.merge(a, b, left_on="x", right_on="z"))
+ 
+ 
++@pytest.importorskip("pyarrow")
+ @pytest.mark.parametrize("how", ["inner", "left", "right", "outer"])
+ @gen_cluster(client=True)
+ async def test_basic_merge(c, s, a, b, how):
+@@ -167,6 +168,7 @@
+     dd.assert_eq(result, expected, check_index=False)
+ 
+ 
++@pytest.importorskip("pyarrow")
+ @pytest.mark.parametrize("how", ["inner", "outer", "left", "right"])
+ @pytest.mark.parametrize("disk", [True, False])
+ @gen_cluster(client=True)
+--- dask.distributed.orig/distributed/shuffle/tests/test_merge_column_and_index.py
++++ dask.distributed/distributed/shuffle/tests/test_merge_column_and_index.py
+@@ -107,6 +107,7 @@
+ # =====
+ 
+ 
++@pytest.importorskip("pyarrow")
+ @gen_cluster(client=True)
+ async def test_merge_known_to_unknown(
+     c,
+@@ -132,6 +133,7 @@
+     assert_eq(result_graph.divisions, tuple(None for _ in range(11)))
+ 
+ 
++@pytest.importorskip("pyarrow")
+ @gen_cluster(client=True)
+ async def test_merge_unknown_to_known(
+     c,
+@@ -158,6 +160,7 @@
+     assert_eq(result_graph.divisions, tuple(None for _ in range(11)))
+ 
+ 
++@pytest.importorskip("pyarrow")
+ @gen_cluster(client=True)
+ async def test_merge_unknown_to_unknown(
+     c,
+--- dask.distributed.orig/distributed/shuffle/tests/test_metrics.py
++++ dask.distributed/distributed/shuffle/tests/test_metrics.py
+@@ -68,6 +68,7 @@
+ 
+ 
+ @gen_cluster(client=True)
++@pytest.importorskip("pyarrow")
+ async def test_dataframe(c, s, a, b):
+     """Metrics are *almost* agnostic in dataframe shuffle vs. array rechunk.
+     The only exception is the 'p2p-shards' metric, which is implemented separately.

@@ -1,0 +1,46 @@
+From: Stefano Rivera <stefanor@debian.org>
+Date: Mon, 28 Dec 2020 18:27:29 -0800
+Subject: Support pytest-asyncio >= 0.14
+
+pytest-asyncio now resets the event_loop_policy after every test. Set it
+back to AnyThreadEventLoopPolicy() with another hook.
+
+Bug-pytest-asyncio: https://github.com/pytest-dev/pytest-asyncio/issues/168
+---
+ conftest.py                            |  3 ++-
+ distributed/debian_patch_event_loop.py | 20 ++++++++++++++++++++
+ 2 files changed, 22 insertions(+), 1 deletion(-)
+ create mode 100644 distributed/debian_patch_event_loop.py
+
+--- a/conftest.py
++++ b/conftest.py
+@@ -34,4 +34,5 @@
+             item.add_marker(skip_slow)
+ 
+ 
+-pytest_plugins = ["distributed.pytest_resourceleaks"]
++pytest_plugins = ["distributed.pytest_resourceleaks",
++                  "distributed.debian_patch_event_loop"]
+--- /dev/null
++++ b/distributed/debian_patch_event_loop.py
+@@ -0,0 +1,20 @@
++import asyncio
++
++import pytest
++
++from distributed.utils import AnyThreadEventLoopPolicy
++
++
++# As found in:
++# https://github.com/pytest-dev/pytest-asyncio/issues/168#issuecomment-703454710
++
++@pytest.hookimpl(trylast=True)
++def pytest_fixture_post_finalizer(fixturedef):
++    if fixturedef.argname == "event_loop":
++        # work around for https://github.com/pytest-dev/pytest-asyncio/issues/168
++        oldloop = asyncio.get_event_loop_policy()
++        if not isinstance(oldloop, AnyThreadEventLoopPolicy):
++            newloop = AnyThreadEventLoopPolicy()
++            # transfer existing eventloop to the new policy
++            newloop.set_event_loop(oldloop.get_event_loop())
++            asyncio.set_event_loop_policy(newloop)

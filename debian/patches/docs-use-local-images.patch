@@ -1,0 +1,29 @@
+From: Diane Trout <diane@ghic.org>
+Date: Sat, 26 Dec 2020 16:55:39 -0800
+Subject: Patch image links to use local copies
+
+Forwarded: No
+---
+ docs/source/diagnosing-performance.rst | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+--- a/docs/source/diagnosing-performance.rst
++++ b/docs/source/diagnosing-performance.rst
+@@ -38,7 +38,7 @@
+ scheduler's ``/status`` page where the colors of the bars correspond to the
+ colors listed above.
+ 
+-.. image:: https://raw.githubusercontent.com/dask/dask-org/main/images/bokeh-task-stream.gif
++.. image:: ../../debian/bokeh-task-stream.gif
+    :alt: Dask task stream
+    :width: 50%
+ 
+@@ -72,7 +72,7 @@
+ typical with most profiling tools.  There is a timeline at the bottom of the
+ page to allow users to select different periods in time.
+ 
+-.. image:: https://raw.githubusercontent.com/dask/dask-org/main/images/daskboard-profile.gif
++.. image:: ../../debian/daskboard-profile.gif
+    :alt: Dask profiler
+    :width: 70%
+ 
