@@ -1,0 +1,444 @@
+Author: Diane Trout <diane@ghic.org>
+Description: I was manually slisting tests that needed to be but that
+ led to two different confusing lists in the debian/rules and the
+ autopkgtests because many of these tests would run after dask is
+ installed, but can't run while we're still buildling the package.  As
+ an experiment I wondered if adding a mark might make this list
+ clearer and easier to maintain.
+Forwarded: not-needed
+
+--- dask.distributed.orig/distributed/cli/tests/test_dask_scheduler.py
++++ dask.distributed/distributed/cli/tests/test_dask_scheduler.py
+@@ -39,6 +39,7 @@
+     return int(match.group(1))
+ 
+ 
++@pytest.mark.isinstalled
+ def test_defaults(loop, requires_default_ports):
+     with popen(["dask", "scheduler"]):
+ 
+@@ -51,6 +52,7 @@
+             assert _get_dashboard_port(c) == 8787
+ 
+ 
++@pytest.mark.isinstalled
+ def test_hostport(loop):
+     port = open_port()
+     with popen(["dask", "scheduler", "--no-dashboard", "--host", f"127.0.0.1:{port}"]):
+@@ -64,6 +66,7 @@
+             c.sync(f)
+ 
+ 
++@pytest.mark.isinstalled
+ def test_no_dashboard(loop, requires_default_ports):
+     with popen(["dask", "scheduler", "--no-dashboard"]):
+         with Client(f"127.0.0.1:{Scheduler.default_port}", loop=loop):
+@@ -71,6 +74,7 @@
+             assert response.status_code == 404
+ 
+ 
++@pytest.mark.isinstalled
+ def test_dashboard(loop):
+     pytest.importorskip("bokeh")
+     port = open_port()
+@@ -103,6 +107,7 @@
+         requests.get(f"http://127.0.0.1:{dashboard_port}/status/")
+ 
+ 
++@pytest.mark.isinstalled
+ def test_dashboard_non_standard_ports(loop):
+     pytest.importorskip("bokeh")
+     port1 = open_port()
+@@ -132,6 +137,7 @@
+         requests.get(f"http://localhost:{port2}/status/")
+ 
+ 
++@pytest.mark.isinstalled
+ def test_multiple_protocols(loop):
+     port1 = open_port()
+     port2 = open_port()
+@@ -150,6 +156,7 @@
+ 
+ 
+ @pytest.mark.skipif(not LINUX, reason="Need 127.0.0.2 to mean localhost")
++@pytest.mark.isinstalled
+ def test_dashboard_allowlist(loop):
+     pytest.importorskip("bokeh")
+     with pytest.raises(requests.ConnectionError):
+@@ -269,6 +276,7 @@
+                 check_pidfile(worker, w)
+ 
+ 
++@pytest.mark.isinstalled
+ def test_scheduler_port_zero(loop):
+     with tmpfile() as fn:
+         with popen(
+@@ -287,6 +295,7 @@
+                 assert c.scheduler.port != 8786
+ 
+ 
++@pytest.mark.isinstalled
+ def test_dashboard_port_zero(loop):
+     pytest.importorskip("bokeh")
+     port = open_port()
+@@ -317,6 +326,7 @@
+ """
+ 
+ 
++@pytest.mark.isinstalled
+ def test_preload_file(loop, tmp_path):
+     def check_scheduler():
+         import scheduler_info
+@@ -342,6 +352,7 @@
+                 assert c.run_on_scheduler(check_scheduler) == c.scheduler.address
+ 
+ 
++@pytest.mark.isinstalled
+ def test_preload_module(loop, tmp_path):
+     def check_scheduler():
+         import scheduler_info
+@@ -373,6 +384,7 @@
+                 assert c.run_on_scheduler(check_scheduler) == c.scheduler.address
+ 
+ 
++@pytest.mark.isinstalled
+ def test_preload_remote_module(loop, tmp_path):
+     with open(tmp_path / "scheduler_info.py", "w") as f:
+         f.write(PRELOAD_TEXT)
+@@ -402,6 +414,7 @@
+                 )
+ 
+ 
++@pytest.mark.isinstalled
+ def test_preload_config(loop):
+     # Ensure dask scheduler pulls the preload from the Dask config if
+     # not specified via a command line option
+@@ -430,6 +443,7 @@
+ """
+ 
+ 
++@pytest.mark.isinstalled
+ def test_preload_command(loop):
+     def check_passthrough():
+         import passthrough_info
+@@ -462,6 +476,7 @@
+         shutil.rmtree(tmpdir)
+ 
+ 
++@pytest.mark.isinstalled
+ def test_preload_command_default(loop):
+     def check_passthrough():
+         import passthrough_info
+@@ -523,6 +538,7 @@
+         signal.signal(signal.SIGINT, original_handler)
+ 
+ 
++@pytest.mark.isinstalled
+ def test_multiple_workers_2(loop):
+     text = """
+ def dask_setup(worker):
+@@ -552,6 +568,7 @@
+                 assert foo == "setup"
+ 
+ 
++@pytest.mark.isinstalled
+ def test_multiple_workers(loop):
+     scheduler_address = f"127.0.0.1:{open_port()}"
+     with (
+@@ -595,6 +612,7 @@
+         assert "end scheduler" in logs
+ 
+ 
++@pytest.mark.isinstalled
+ @pytest.mark.skipif(WINDOWS, reason="POSIX only")
+ def test_single_executable_deprecated(loop):
+     port = open_port()
+--- dask.distributed.orig/distributed/cli/tests/test_dask_worker.py
++++ dask.distributed/distributed/cli/tests/test_dask_worker.py
+@@ -166,6 +166,7 @@
+         _apportion_ports("100:101:102", None, 1, False)
+ 
+ 
++@pytest.mark.isinstalled
+ @pytest.mark.slow
+ @gen_cluster(client=True, nthreads=[])
+ async def test_nanny_worker_ports(c, s):
+@@ -191,6 +192,7 @@
+         )
+ 
+ 
++@pytest.mark.isinstalled
+ @pytest.mark.slow
+ @pytest.mark.flaky(
+     LINUX and sys.version_info[:2] == (3, 9),
+@@ -239,6 +241,7 @@
+         await assert_ports(11000, 12000, nanny=True)
+ 
+ 
++@pytest.mark.isinstalled
+ @gen_cluster(nthreads=[])
+ async def test_nanny_worker_port_range_too_many_workers_raises(s):
+     with popen(
+@@ -261,6 +264,7 @@
+         wait_for_log_line(b"Not enough ports in range", worker.stdout, max_lines=100)
+ 
+ 
++@pytest.mark.isinstalled
+ @pytest.mark.slow
+ @gen_cluster(client=True, nthreads=[])
+ async def test_memory_limit(c, s):
+@@ -281,12 +285,14 @@
+         assert d["memory_limit"] == 2e9
+ 
+ 
++@pytest.mark.isinstalled
+ @gen_cluster(client=True, nthreads=[])
+ async def test_no_nanny(c, s):
+     with popen(["dask", "worker", s.address, "--no-nanny", "--no-dashboard"]):
+         await c.wait_for_workers(1)
+ 
+ 
++@pytest.mark.isinstalled
+ @pytest.mark.slow
+ @gen_cluster(client=True, nthreads=[])
+ async def test_resources(c, s):
+@@ -306,6 +312,7 @@
+         assert d["resources"] == {"A": 1, "B": 2, "C": 3}
+ 
+ 
++@pytest.mark.isinstalled
+ @pytest.mark.slow
+ @pytest.mark.parametrize("nanny", ["--nanny", "--no-nanny"])
+ @gen_cluster(client=True, nthreads=[])
+@@ -327,6 +334,7 @@
+         assert d["local_directory"].startswith(str(tmp_path))
+ 
+ 
++@pytest.mark.isinstalled
+ @pytest.mark.slow
+ @pytest.mark.parametrize("nanny", ["--nanny", "--no-nanny"])
+ def test_scheduler_file(loop, nanny):
+@@ -342,6 +350,7 @@
+             assert time() < start + 10
+ 
+ 
++@pytest.mark.isinstalled
+ @pytest.mark.slow
+ def test_scheduler_address_env(loop, monkeypatch):
+     port = open_port()
+@@ -356,6 +365,7 @@
+                     assert time() < start + 10
+ 
+ 
++@pytest.mark.isinstalled
+ @gen_cluster(nthreads=[])
+ async def test_nworkers_requires_nanny(s):
+     with popen(
+@@ -365,6 +375,7 @@
+         wait_for_log_line(b"Failed to launch worker", worker.stdout, max_lines=15)
+ 
+ 
++@pytest.mark.isinstalled
+ @pytest.mark.slow
+ @gen_cluster(client=True, nthreads=[])
+ async def test_nworkers_negative(c, s):
+@@ -372,6 +383,7 @@
+         await c.wait_for_workers(cpu_count())
+ 
+ 
++@pytest.mark.isinstalled
+ @pytest.mark.slow
+ @gen_cluster(client=True, nthreads=[])
+ async def test_nworkers_auto(c, s):
+@@ -380,6 +392,7 @@
+         await c.wait_for_workers(procs)
+ 
+ 
++@pytest.mark.isinstalled
+ @pytest.mark.slow
+ @gen_cluster(client=True, nthreads=[])
+ async def test_nworkers_expands_name(c, s):
+@@ -394,6 +407,7 @@
+     assert len(zeros) == 2
+ 
+ 
++@pytest.mark.isinstalled
+ @pytest.mark.slow
+ @pytest.mark.skipif(not LINUX, reason="Need 127.0.0.2 to mean localhost")
+ @pytest.mark.parametrize("nanny", ["--nanny", "--no-nanny"])
+@@ -428,6 +442,7 @@
+         assert await c.run(func) == {f"tcp://127.0.0.2:{port}": listen_address}
+ 
+ 
++@pytest.mark.isinstalled
+ @pytest.mark.slow
+ @requires_ipv6
+ @pytest.mark.parametrize("nanny", ["--nanny", "--no-nanny"])
+@@ -465,6 +480,7 @@
+         assert await c.run(func) == {expected_name: expected_listen}
+ 
+ 
++@pytest.mark.isinstalled
+ @pytest.mark.slow
+ @pytest.mark.skipif(not LINUX, reason="Need 127.0.0.2 to mean localhost")
+ @pytest.mark.parametrize("nanny", ["--nanny", "--no-nanny"])
+@@ -484,6 +500,7 @@
+         assert all(host in v for v in listen_addresses.values())
+ 
+ 
++@pytest.mark.isinstalled
+ @pytest.mark.slow
+ def test_dashboard_non_standard_ports():
+     pytest.importorskip("bokeh")
+@@ -533,6 +550,7 @@
+     assert result.exit_code == 1
+ 
+ 
++@pytest.mark.isinstalled
+ @pytest.mark.slow
+ @gen_cluster(nthreads=[])
+ async def test_integer_names(s):
+@@ -543,6 +561,7 @@
+         assert ws.name == 123
+ 
+ 
++@pytest.mark.isinstalled
+ @pytest.mark.slow
+ @pytest.mark.parametrize("nanny", ["--nanny", "--no-nanny"])
+ @gen_cluster(client=True, nthreads=[])
+@@ -586,6 +605,7 @@
+         assert all(name == "MyWorker" for name in worker_types.values())
+ 
+ 
++@pytest.mark.isinstalled
+ @pytest.mark.slow
+ @gen_cluster(nthreads=[], client=True)
+ async def test_preload_config(c, s):
+@@ -603,6 +623,7 @@
+         assert foo == "setup"
+ 
+ 
++@pytest.mark.isinstalled
+ @pytest.mark.slow
+ @gen_cluster(nthreads=[], client=True)
+ async def test_set_lifetime_stagger_via_env_var(c, s):
+@@ -622,6 +643,7 @@
+         assert 8 <= lifetime2 <= 12
+ 
+ 
++@pytest.mark.isinstalled
+ @pytest.mark.slow
+ @gen_cluster(nthreads=[], client=True)
+ async def test_set_lifetime_restart_via_env_var(c, s):
+@@ -636,6 +658,7 @@
+         assert lifetime_restart
+ 
+ 
++@pytest.mark.isinstalled
+ @pytest.mark.slow
+ @pytest.mark.parametrize("nanny", ["--nanny", "--no-nanny"])
+ def test_timeout(nanny):
+@@ -658,6 +681,7 @@
+     assert worker.returncode == 1
+ 
+ 
++@pytest.mark.isinstalled
+ @pytest.mark.skipif(WINDOWS, reason="POSIX only")
+ @pytest.mark.parametrize("nanny", ["--nanny", "--no-nanny"])
+ @pytest.mark.parametrize("sig", [signal.SIGINT, signal.SIGTERM])
+@@ -687,6 +711,7 @@
+         assert "exception" not in logs
+ 
+ 
++@pytest.mark.isinstalled
+ @pytest.mark.parametrize("nanny", ["--nanny", "--no-nanny"])
+ def test_error_during_startup(monkeypatch, nanny, loop):
+     # see https://github.com/dask/distributed/issues/6320
+@@ -716,6 +741,7 @@
+                 assert worker.wait(10) == 1
+ 
+ 
++@pytest.mark.isinstalled
+ def test_single_executable_deprecated():
+     assert (
+         b"FutureWarning: dask-worker is deprecated"
+@@ -723,6 +749,7 @@
+     )
+ 
+ 
++@pytest.mark.isinstalled
+ @pytest.mark.slow
+ @gen_cluster(nthreads=[], client=True)
+ async def test_single_executable_works(c, s):
+--- dask.distributed.orig/distributed/tests/test_config.py
++++ dask.distributed/distributed/tests/test_config.py
+@@ -69,6 +69,7 @@
+         )
+ 
+ 
++@pytest.mark.isinstalled
+ def test_logging_simple_under_distributed():
+     """
+     Test simple ("old-style") logging configuration under the distributed key.
+@@ -105,6 +106,7 @@
+         subprocess.check_call([sys.executable, "-c", code])
+ 
+ 
++@pytest.mark.isinstalled
+ def test_logging_simple():
+     """
+     Test simple ("old-style") logging configuration.
+@@ -137,6 +139,7 @@
+         subprocess.check_call([sys.executable, "-c", code])
+ 
+ 
++@pytest.mark.isinstalled
+ def test_logging_extended():
+     """
+     Test extended ("new-style") logging configuration.
+@@ -235,6 +238,7 @@
+     )
+ 
+ 
++@pytest.mark.isinstalled
+ def test_logging_mutual_exclusive():
+     """
+     Ensure that 'logging-file-config' and 'logging' have to be mutual exclusive.
+@@ -244,6 +248,7 @@
+         initialize_logging(config)
+ 
+ 
++@pytest.mark.isinstalled
+ def test_logging_file_config():
+     """
+     Test `logging-file-config` logging configuration
+--- dask.distributed.orig/distributed/tests/test_queues.py
++++ dask.distributed/distributed/tests/test_queues.py
+@@ -276,6 +276,7 @@
+     await c.gather([res, fut])
+ 
+ 
++@pytest.mark.isinstalled
+ def test_queue_in_task(loop):
+     port = open_port()
+     # Ensure that we can create a Queue inside a task on a
+--- dask.distributed.orig/distributed/tests/test_variable.py
++++ dask.distributed/distributed/tests/test_variable.py
+@@ -40,6 +40,7 @@
+         assert time() < start + 5
+ 
+ 
++@pytest.mark.isinstalled
+ def test_variable_in_task(loop):
+     port = open_port()
+     # Ensure that we can create a Variable inside a task on a
+--- dask.distributed.orig/pyproject.toml
++++ dask.distributed/pyproject.toml
+@@ -163,6 +163,7 @@
+     "extra_packages: marks tests that require a special dependency to run.",
+     "slow: marks tests as slow (deselected by default", # select with '--runslow')
+     "avoid_ci: marks tests as flaky or broken on CI on all OSs",
++    "isinstalled: marks test as needing dask to be on path",
+     "ipython: marks tests as exercising IPython",
+     "gpu: marks tests we want to run on GPUs",
+     "leaking: ignore leaked resources", # see pytest_resourceleaks.py for usage

@@ -1,0 +1,28 @@
+From: Diane Trout <diane@ghic.org>
+Date: Thu, 12 Oct 2017 20:56:29 -0700
+Subject: Use the inventory files from other documentation packages.
+Forwarded: not-needed
+
+---
+ docs/source/conf.py | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+--- a/docs/source/conf.py
++++ b/docs/source/conf.py
+@@ -392,11 +392,11 @@
+ # Configuration for intersphinx: refer to the Python standard library
+ # and the Numpy documentation.
+ intersphinx_mapping = {
+-    "python": ("https://docs.python.org/3", None),
+-    "numpy": ("https://docs.scipy.org/doc/numpy", None),
+-    "pandas": ("https://pandas.pydata.org/docs", None),
+-    "dask": ("https://docs.dask.org/en/latest", None),
+-    "bokeh": ("https://docs.bokeh.org/en/latest", None),
++    "python": ("https://docs.python.org/3", "/usr/share/doc/python3/html/objects.inv"),
++#    "numpy": ("https://docs.scipy.org/doc/numpy", "/usr/share/doc/python-numpy-doc/html/objects.inv"),
++    "pandas": ("https://pandas.pydata.org/docs", "/usr/share/doc/python-pandas-doc/html/objects.inv"),
++    "dask": ("https://docs.dask.org/en/latest", "/usr/share/doc/python-dask-doc/html/objects.inv"),
++#    "bokeh": ("https://docs.bokeh.org/en/latest", None),
+     "fsspec": ("https://filesystem-spec.readthedocs.io/en/latest", None),
+ }
+ 

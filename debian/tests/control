@@ -1,0 +1,33 @@
+Tests: run-tests
+Restrictions: needs-internet, flaky
+Depends: @,
+ python3-all,
+ iputils-ping,
+ python3-aiohttp,
+ python3-cryptography,
+ python3-dill,
+ python3-h5py,
+ python3-ipykernel,
+ python3-ipython,
+# python3-ipywidgets,
+ python3-joblib,
+ python3-jupyter-client,
+ python3-jupyter-server (>= 1.23.3-2),
+# keras imports theanos which fails
+#  theano/scalar/basic.py(2370)<module>() -> convert_to_bool = Cast(bool, name='convert_to_bool')
+#  theano/scalar/basic.py(2323)__init__() -> self.ctor = getattr(np, o_type.dtype)
+#  numpy/__init__.py(284)__getattr__() -> raise AttributeError("module {!r} has no attribute np.bool")
+# python3-keras,
+ python3-lz4,
+ python3-matplotlib,
+ python3-netcdf4,
+ python3-pandas,
+ python3-paramiko,
+ python3-pytest,
+ python3-pytest-rerunfailures,
+ python3-pytest-timeout,
+ python3-requests,
+ python3-scipy,
+ python3-sklearn,
+ python3-tblib,
+ tzdata-legacy,

@@ -1,0 +1,30 @@
+Author: Diane Trout <diane@ghic.org>
+Description: On Debian Test runners the ivp6 loop back interface is
+ available so dask.distributed thinks it has ipv6 access, but it
+ doesn't have a routable address so the lookup to the well known IPv6
+ address fails, and the hostname doesn't have an ipv6 address associated
+ with it so the fallback to gethostname() also fails.
+ This adds a further fallback to the name localhost.
+Forwarded: not yet
+
+--- a/distributed/utils.py
++++ b/distributed/utils.py
+@@ -183,10 +183,14 @@
+             "reaching %r, defaulting to hostname: %s" % (host, e),
+             RuntimeWarning,
+         )
+-        addr_info = socket.getaddrinfo(
+-            socket.gethostname(), port, family, socket.SOCK_DGRAM, socket.IPPROTO_UDP
+-        )[0]
+-        return addr_info[4][0]
++        for name in [socket.gethostname(), "localhost"]:
++            try:
++                addr_info = socket.getaddrinfo(
++                    name, port, family, socket.SOCK_DGRAM, socket.IPPROTO_UDP
++                )[0]
++                return addr_info[4][0]
++            except OSError as e:
++                warnings.warn("Unable to use address for %s because %s" % (name, e))
+     finally:
+         sock.close()
+ 

@@ -1,0 +1,25 @@
+Author: Julian Gilbey <jdg@debian.org>
+Description: The memray module is not yet available in Debian.
+  ITP bug: https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=1009970
+Forwarded: no
+
+--- a/docs/source/api.rst
++++ b/docs/source/api.rst
+@@ -75,8 +75,6 @@
+ .. autosummary::
+    distributed.utils.Log
+    distributed.utils.Logs
+-   distributed.diagnostics.memray.memray_scheduler
+-   distributed.diagnostics.memray.memray_workers
+ 
+ 
+ Asynchronous methods
+@@ -201,8 +199,6 @@
+ 
+ .. autoclass:: distributed.utils.Log
+ .. autoclass:: distributed.utils.Logs
+-.. autofunction:: distributed.diagnostics.memray.memray_scheduler
+-.. autofunction:: distributed.diagnostics.memray.memray_workers
+ 
+ 
+ Adaptive

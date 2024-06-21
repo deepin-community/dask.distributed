@@ -1,15 +1,80 @@
-Source: template-repository
-Section: unknown
+Source: dask.distributed
+Maintainer: Debian Python Team <team+python@tracker.debian.org>
+Uploaders: Diane Trout <diane@ghic.org>
+Section: python
 Priority: optional
-Maintainer: Tsic404 <liuheng@deepin.org>
-Build-Depends: debhelper (>= 11)
-Standards-Version: 4.1.3
-Homepage: https://github.com/deepin-community/template-repository
-#Vcs-Browser: https://salsa.debian.org/debian/deepin-community-template-repository
-#Vcs-Git: https://salsa.debian.org/debian/deepin-community-template-repository.git
+Build-Depends: debhelper-compat (= 13),
+               dh-python,
+               libjs-sortable-tablesort,
+               python3-all,
+               pybuild-plugin-pyproject,
+               python3-click (>= 6.6),
+               python3-cloudpickle (>= 1.5.0),
+               python3-cryptography <!nocheck>,
+# dask.distributed has tight version coupling with dask.  Please read
+# the mail thread on debian-python@lists.debian.org[1] for more context,
+# and notably [2].
+# [1]: https://lists.debian.org/debian-python/2024/06/msg00047.html
+# [2]: https://lists.debian.org/debian-python/2024/06/msg00051.html
+               python3-dask (>= 2024.5.2),
+               python3-dask (<< 2024.5.2.1~),
+               python3-doc <!nodoc>,
+               python3-jupyter-server (>= 1.23.3-2) <!nocheck>,
+               python3-locket,
+               python3-msgpack,
+               python3-numpy <!nocheck>,
+               python3-numpydoc,
+               python3-pandas <!nocheck>,
+               python-pandas-doc <!nodoc>,
+               python3-psutil,
+               python3-pytest,
+               python3-pytest-asyncio,
+               python3-pytest-rerunfailures <!nocheck>,
+               python3-pytest-timeout,
+               python3-setuptools,
+               python3-sortedcollections,
+               python3-sphinx,
+               python3-sphinx-click,
+               python3-dask-sphinx-theme <!nodoc>,
+               python3-sphinx-design <!nodoc>,
+               python3-tblib,
+               python3-toolz (>= 0.8.2),
+               python3-tornado (>= 5),
+               python3-versioneer,
+               python3-yaml,
+               python3-zict (>= 3.0.0),
+               tzdata-legacy,
+               uglifyjs,
+Standards-Version: 4.7.0
+Homepage: https://distributed.readthedocs.io/en/latest/
+Vcs-Git: https://salsa.debian.org/python-team/packages/dask.distributed.git
+Vcs-Browser: https://salsa.debian.org/python-team/packages/dask.distributed
+Rules-Requires-Root: no
+Testsuite: autopkgtest-pkg-pybuild
 
-Package: template-repository
-Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: <insert up to 60 chars description>
- <insert long description, indented with spaces>
+Package: python3-distributed
+Architecture: all
+Depends: ${misc:Depends},
+         ${python3:Depends},
+         python3-dask (>= 2024.5.2),
+         python3-dask (<< 2024.5.2.1~),
+Recommends: python3-pandas, python3-yaml
+Description: Dask Distributed computing for Python 3
+ Dask.distributed is a lightweight library for distributed computing in
+ Python. It extends both the concurrent.futures and dask APIs to
+ moderate sized clusters.
+ .
+ This contains the Python 3 version
+
+Package: python-distributed-doc
+Architecture: all
+Multi-Arch: foreign
+Section: doc
+Depends: ${misc:Depends}, ${sphinxdoc:Depends},
+         sass-stylesheets-bulma
+Description: Dask Distributed computing documentation
+ Dask.distributed is a lightweight library for distributed computing in
+ Python. It extends both the concurrent.futures and dask APIs to
+ moderate sized clusters.
+ .
+ This contains the documentation

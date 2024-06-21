@@ -1,4 +1,184 @@
 #!/usr/bin/make -f
 
+SKIP=test_git_revision \
+  or test_jupyter_idle_timeout_returned \
+  or test_process_executor_kills_process \
+  or test_steal_twice or test_client_worker
+
+# These tests need an Internet access to pass properly.  Please use
+# build environment that properly hides the host's network card to
+# capture newer such tests (e.g. chroot mode "unshare" or lxc).
+NET_SKIP=test_BatchedSend \
+  or test_send_before_start \
+  or test_send_after_stream_start \
+  or test_send_before_close \
+  or test_close_closed \
+  or test_close_twice \
+  or test_sending_traffic_jam \
+  or test_serializers \
+  or test_repr_localcluster \
+  or test_rebalance_sync \
+  or test_quiet_client_close \
+  or test_dashboard_link_inproc \
+  or test_mixing_clients_different_scheduler \
+  or test_file_descriptors_dont_leak \
+  or test_dashboard_link_cluster \
+  or test_shutdown \
+  or test_shutdown_localcluster \
+  or test_shutdown_stops_callbacks \
+  or test_shutdown_is_quiet_with_cluster \
+  or test_client_is_quiet_cluster_close \
+  or test_async_with \
+  or test_security_loader \
+  or test_security_loader_ignored_if_explicit_security_provided \
+  or test_security_loader_ignored_if_returns_none \
+  or test_close_loop_sync_start_new_loop \
+  or test_close_loop_sync_use_running_loop \
+  or test_server \
+  or test_server_raises_on_blocked_handlers \
+  or test_rpc_default \
+  or test_rpc_tcp \
+  or test_rpc_tls \
+  or test_rpc_inproc \
+  or test_rpc_message_lifetime_default \
+  or test_rpc_message_lifetime_tcp \
+  or test_rpc_message_lifetime_inproc \
+  or test_rpc_with_many_connections_tcp \
+  or test_rpc_with_many_connections_inproc \
+  or test_large_packets_inproc \
+  or test_identity_tcp \
+  or test_identity_inproc \
+  or test_ports \
+  or test_errors \
+  or test_send_recv_args \
+  or test_send_recv_cancelled \
+  or test_connection_pool \
+  or test_connection_pool_close_while_connecting \
+  or test_connection_pool_outside_cancellation \
+  or test_connection_pool_respects_limit \
+  or test_connection_pool_tls \
+  or test_connection_pool_remove \
+  or test_counters \
+  or test_compression \
+  or test_rpc_serialization \
+  or test_deserialize_error \
+  or test_connection_pool_detects_remote_close \
+  or test_close_properly \
+  or test_server_comms_mark_active_handlers \
+  or test_close_fast_without_active_handlers \
+  or test_close_grace_period_for_handlers \
+  or test_messages_are_ordered_bsend \
+  or test_messages_are_ordered_raw \
+  or test_jupyter_server \
+  or test_jupyter_idle_timeout \
+  or test_worker_uses_same_host_as_nanny \
+  or test_scheduler_file \
+  or test_worker_preload_text \
+  or test_preload_manager_sequence \
+  or test_preload_import_time \
+  or test_failure_doesnt_crash_scheduler \
+  or test_scheduler_file \
+  or test_dashboard_host \
+  or test_async_context_manager \
+  or test_allowed_failures_config \
+  or test_finished \
+  or test_no_dangling_asyncio_tasks \
+  or test_multiple_listeners \
+  or test_tls_listen_connect \
+  or test_require_encryption \
+  or test_tls_temporary_credentials_functional \
+  or test_threadpoolworkers_pick_correct_ioloop \
+  or test_security_dict_input_no_security \
+  or test_locked_comm_drop_in_replacement \
+  or test_locked_comm_intercept_read \
+  or test_locked_comm_intercept_write \
+  or test_freeze_batched_send \
+  or test_ensure_no_new_clients \
+  or test_plugin_exception \
+  or test_plugin_multiple_exceptions \
+  or test_plugin_internal_exception \
+  or test_scheduler_file \
+  or test_host_uses_scheduler_protocol \
+  or test_dont_override_default_get
+
+export PYBUILD_NAME=distributed
+export PYBUILD_TEST_ARGS=$(CURDIR)/distributed/tests -v \
+  --ignore=distributed/deploy/utils_test.py \
+  --ignore=distributed/utils_test.py \
+  --ignore=continuous_integration \
+  --ignore=docs \
+  --ignore=.github \
+  --timeout-method=signal \
+  --timeout=300 \
+  -m "not (avoid_ci or isinstalled or slow)" \
+  -k "not ( $(SKIP) or $(NET_SKIP) )"
+
+# FIXME: several tests are tripping on the missing dask_expr raising
+# FutureWarnings on dask.dataframe module import.  Setting configuration
+# option "dataframe.query-planning" to False will not raise such
+# warning, but the way forward would probably be to package dask_expr.
+export PYBUILD_BEFORE_TEST=\
+  mkdir -pv {home_dir}/.config/ \
+  && printf '\173 "dataframe": \173 "query-planning": False \175 \175\n' \
+     > {home_dir}/.config/dask
+
+export NEEDED_JS=distributed/http/static/js/anime.min.js \
+                 distributed/http/static/js/reconnecting-websocket.min.js
+DEB_BUILD_OPTIONS += $(filter nodoc,$(DEB_BUILD_PROFILES))
 %:
-	dh $@
+	dh $@ --with python3,sphinxdoc --buildsystem=pybuild
+
+override_dh_auto_build: export http_proxy=127.0.0.1:9
+override_dh_auto_build: export https_proxy=127.0.0.1:9
+override_dh_auto_build:
+	rm -f distributed/comm/tests/__init__.py
+	set -e; \
+	for p in ${NEEDED_JS}; do \
+	    uglifyjs -o $$p debian/missing-sources/$${p%.min.js}.js ; \
+	done
+	cp /usr/share/javascript/sortable-tablesort/sortable.min.js distributed/http/static/js
+	cp /usr/share/javascript/sortable-tablesort/sortable.min.css* distributed/http/static/css
+	chmod a-x distributed/tests/test_utils_test.py
+	dh_auto_build
+#	ln -s /usr/share/javascript/mathjax docs/source/_static
+ifeq (,$(filter nodoc,$(DEB_BUILD_OPTIONS)))
+	PYTHONPATH=. python3 -m sphinx -N -bhtml docs/source build/html # HTML generator
+	rm -rf build/html/_static/__pycache__
+endif
+	dh_fixperms
+
+override_dh_compress:
+	dh_compress -Xchangelog.html
+
+override_dh_install:
+	dh_install
+	dh_installchangelogs docs/source/changelog.rst
+
+override_dh_auto_install:
+	dh_auto_install
+	dh_link
+	find debian/ -name *.ico -exec chmod a-x {} \;
+	rm -rf debian/python3-distributed/usr/lib/python3*/dist-packages/dask-worker-space debian/python3-distributed/usr/lib/python3*/dist-packages/core debian/python3-distributed/usr/lib/python3*/dist-packages/test_cluster_dump
+
+execute_after_dh_installdocs:
+	rm -vf debian/python-distributed-doc/usr/share/doc/python-distributed-doc/html/_static/vendor/fontawesome/*/LICENSE.txt
+
+override_dh_auto_test:
+ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
+	dh_auto_test
+else
+	echo "Not running tests"
+endif
+
+override_dh_auto_clean:
+	touch distributed/comm/tests/__init__.py
+	dh_auto_clean
+	-rm $(NEEDED_JS)
+	-chmod 755 distributed/tests/test_utils_test.py
+
+before-pybuild-autopkgtest:
+	# Copy some test resources missing in autopkgtest-pkg-pybuild context.
+	mkdir -pv ../../autopkgtest_tmp/build/
+	cp -rv distributed/tests/testegg-*-py*.egg \
+		distributed/tests/mytest.pyz \
+		../../autopkgtest_tmp/build/

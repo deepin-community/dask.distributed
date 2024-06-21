@@ -1,0 +1,45 @@
+Author: Diane Trout <diane@ghic.org>
+Description: avoid tests that do things unlikely to work on 32-bit
+ platforms, such as request large amounts of virtual memory.
+
+--- a/distributed/tests/test_worker_memory.py
++++ b/distributed/tests/test_worker_memory.py
+@@ -8,6 +8,7 @@
+ import threading
+ from collections import Counter, UserDict
+ from time import sleep
++import sys
+ 
+ import psutil
+ import pytest
+@@ -162,6 +163,10 @@
+     assert results == list(map(inc, range(10)))
+ 
+ 
++
++@pytest.mark.skipif(
++    CONDITION=(sys.maxsize < 2 ** 32),
++    reason="fails on 32-bit, is it asking for large memory?")
+ @gen_cluster(client=True)
+ async def test_fail_to_pickle_execute_1(c, s, a, b):
+     """Test failure to serialize triggered by computing a key which is individually
+--- a/distributed/http/worker/tests/test_worker_http.py
++++ b/distributed/http/worker/tests/test_worker_http.py
+@@ -3,6 +3,7 @@
+ import asyncio
+ import json
+ from unittest import mock
++import sys
+ 
+ import pytest
+ from tornado.httpclient import AsyncHTTPClient
+@@ -222,6 +223,9 @@
+     assert metrics["spilled"] == 0
+ 
+ 
++@pytest.mark.skipif(
++    CONDITION=(sys.maxsize < 2 ** 32),
++    reason="Fails on 32-bit, seems to be large memory request")
+ @gen_cluster(
+     client=True,
+     nthreads=[("", 1)],

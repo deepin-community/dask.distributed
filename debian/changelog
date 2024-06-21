@@ -1,5 +1,459 @@
-template-repository (1.0-1) unstable; urgency=medium
+dask.distributed (2024.5.2+ds.1-2) unstable; urgency=medium
 
-  * Initial release
+  * Team upload.
+  * mark-tests-flaky.patch: capture more flaky tests.
+  * d/control: hardcode python3-dask version lock.
+    There is a small difference in repack extension preventing the trick.
+  * d/s/lintian-overrides: remove: now unneeded.
+  * skip-pyarrow-tests.patch: skip newly introduced test.
+  * d/rules: rewrap SKIP variable to facilitate readability.
+  * d/rules: skip tests needing Internet. (Closes: #1066799)
+  * d/{control,rules}: activate autopkgtest-pkg-pybuild.
+    This test complements the existing flaky autopkgtest test that
+    requires a testbed with Internet connection.
+  * d/t/run-tests: skip test failing reported upstream.
+    On python3.12, some failures to serialize may return RecursionErrors
+    instead of the expected TypeError and its message "Could not serialize
+    object" until this minor issue is resolved.
+  * d/control: declare compliance to standards version 4.7.0.
 
- -- Tsic404 <liuheng@deepin.org>  Sat, 28 Jan 2023 13:46:49 +0800
+ -- Étienne Mollier <emollier@debian.org>  Thu, 20 Jun 2024 21:21:07 +0200
+
+dask.distributed (2024.5.2+ds.1-1) unstable; urgency=medium
+
+  * Team upload.
+
+  [ Alexandre Detiste ]
+  * remove obsolete python3-six build-dep
+
+  [ Étienne Mollier ]
+  * New upstream version 2024.5.2+ds.1
+  * skip-pyarrow-tests.patch: refresh.
+  * adjust-timeouts.patch: refresh.
+  * fix-pandas-test.patch: delete: applied upstream.
+  * Unfuzz patches.
+  * d/{rules,t/run-tests}: workaround test failures.
+    The test failures are caused by FutureWarning raised on dask.dataframe
+    import, which would be solved by making dask_expr module available,
+    but it is not part of Debian yet.  Setting configuration option
+    "dataframe.query-planning" to False bypasses both the dask_expr import
+    attempt and the subsequent FutureWarning.
+  * d/README.source: new.
+    Document that dask and dask.distributed must be kept synchronized.
+  * use-youtube-nocookie.patch: adjust another video.
+  * d/control: python-distributed-doc depends on sass-stylesheets-bulma.
+  * fix-privacy-breaches.patch: new: use Debian provided CSS file.
+  * d/t/control: tests depend on python3-all.
+    Ensure py3versions --supported can capture all interpreters indeed.
+  * d/copyright: remove unused Unlicense paragraph.
+  * d/rules: cleanup spurious license text tripping lintian.
+  * d/{control,s/lintian-overrides}: force dask coupling.
+    dask and dask.distributed need being upgraded in lockstep.  To limit
+    multiple copies of the current dask.distributed version in d/control,
+    ${source:Version} is used for the binary package dependency (it is not
+    usable for the source package build dependency), but since it is not
+    normal to couple a source package version to another source package,
+    the change also requires a lintian override.
+    Thanks to Julian Gilbey <jdg@debian.org>
+  * mark-tests-flaky.patch: declare test_collections_metadata flaky too.
+
+ -- Étienne Mollier <emollier@debian.org>  Sun, 16 Jun 2024 18:45:33 +0200
+
+dask.distributed (2023.12.1+ds-4) unstable; urgency=medium
+
+  * Depend on libjs-sortable-tablesort at build to get vendored JS code
+
+ -- Julian Gilbey <jdg@debian.org>  Mon, 15 Jan 2024 08:55:52 +0000
+
+dask.distributed (2023.12.1+ds-3) unstable; urgency=medium
+
+  * Remove redundant broken link (closes: #988675)
+  * This (or an earlier) version of dask.distributed has also closed old
+    bugs (closes: #904944, #905540, #995735)
+
+ -- Julian Gilbey <jdg@debian.org>  Fri, 05 Jan 2024 07:13:17 +0000
+
+dask.distributed (2023.12.1+ds-2) unstable; urgency=medium
+
+  * Fix filenames of minified JavaScript files
+  * Fix test_pandas test
+
+ -- Julian Gilbey <jdg@debian.org>  Wed, 03 Jan 2024 18:27:59 +0000
+
+dask.distributed (2023.12.1+ds-1) unstable; urgency=medium
+
+  * Team upload
+  * New upstream version 2023.12.1+ds (needed to pass tests with Python 3.12)
+  * Refresh patches
+  * Fix sphinx config error (closes: #1057950)
+  * Skip some failing tests (test_process_executor_kills_process hangs,
+    test_steal_twice and test_client_worker fail)
+  * Depend on patched version of jupyter-server for Python 3.12 tests
+  * Use vendored copies of libjs-sortable-tablesort files until the
+    package is accepted into unstable
+
+ -- Julian Gilbey <jdg@debian.org>  Tue, 02 Jan 2024 22:18:53 +0000
+
+dask.distributed (2023.8.0+ds.1-1) unstable; urgency=medium
+
+  * New upstream release
+  * Refresh patches
+  * Upstream stopped embeding versioneer.
+    - Remove reproducible-version.patch
+    - Add python3-versioneer build dependency
+    - add pybuild-plugin-pyproject.toml
+  * Update use-local-intersphinx-inventory to skip numpy & bokeh docs
+  * Update mark-tests-require-installation.patch to declare isinstalled
+    as a valid pytest mark
+  * Add skip-coverage-test.patch to not pass --cov-config=pyproject.toml
+    to pytest. It didn't work on Debian at this time.
+  * Update skip-pyarrow-tests.patch with new tests to skip.
+  * Add tzdata-legacy to allow using deprecated timezones in tests
+  * copy pyproject.toml instead of setup.cfg in autopkgtests
+  * Update list of tests that have problems during build and autopkgtests
+  * Update required dask version to >= 2023.8.0
+
+ -- Diane Trout <diane@ghic.org>  Thu, 10 Aug 2023 19:11:53 -0700
+
+dask.distributed (2022.12.1+ds.1-3) unstable; urgency=medium
+
+  * Keep working on making tests less flaky
+  * rename skipped mark in d/rules from avoid_travis to avoid_ci
+  * skip the same tests being skipped in d/rules
+    - running the daemons isn't working reliably in our test servers.
+  * The dask.distributed tests fail frequently enough that we shouldn't
+    trust them.
+    - mark the autopkgtests as flaky.
+
+ -- Diane Trout <diane@ghic.org>  Thu, 09 Feb 2023 16:36:47 -0800
+
+dask.distributed (2022.12.1+ds.1-2) unstable; urgency=medium
+
+  [ Andreas Tille ]
+  * Team upload.
+  * Versioned Depends python3-dask (>= 2022.12.1) to prevent debci test
+    against old version
+  * Standards-Version: 4.6.2
+  * Set upstream metadata fields: Bug-Database, Bug-Submit, Contact,
+    Repository-Browse.
+  * Add debian/salsa-ci.yml
+
+  [ Rebecca N. Palmer ]
+  * change timeouts to reduce random failures.
+  * mark an intermittent failure as flaky.
+  * don't stop the entire run if one test times out.
+  * Remove stray files.
+  * Run autopkgtest as non-root.
+  * Retry flaky tests (like upstream) instead of skipping them.
+
+  [ Diane Trout ]
+  * Disable ivp6 tests if the autopkgtest runners lack ipv6 connectivity.
+    - Add autopkgtest dependency iputils-ping for ipv6 testing
+  * Add skip-32bit-incompatible-test.patch to skip tests that fail on 32bit
+    They seemed to be requesting large virtual memory regions.
+    - Also remove a 32bit test skip from d/rules
+  * Add python3-matplotlib to autopkgtest environment to enable a few tests
+
+ -- Diane Trout <diane@ghic.org>  Wed, 08 Feb 2023 16:32:04 -0800
+
+dask.distributed (2022.12.1+ds.1-1) unstable; urgency=medium
+
+  * New upsream release. (Closes: #1029232)
+  * Remove the following patches, resolved upstream
+    - python-3.10-loop.patch
+    - test_spillbuffer_remove_sizetest.patch
+    - python3.11.patch
+    - set-client-asynchronous-earlier.patch
+  * Install tests to simplify running autopkgtests
+  * add add-test-marks.patch to define some pytest test marks
+  * add skip-pyarrow-tests.path as we don't have that dependency
+    - consider reviewing this patch and focusing on the specific
+      modules that are importing pyarrow.
+  * Refresh patches
+  * Add python3-jupyter-server to Build-Depends for tests
+  * Add python3-aiohttp dependency to autopkgtests
+  * Remove python3-keras autopkgtest dependency, it depends
+    on an unmaintained package theano which breaks during the run.
+  * Move autopkgtest script to it's own file run-tests
+  * Remove python-numpy-doc dependency since it's not available.
+    (closes: #1028691)
+  * Update list of tests that don't run correctly during build
+  * attempt to implement nocheck DEB_BUILD_OPTION in d/rules
+  * adjust d/rules to prevent __pycache__ directory from being shipped in
+    python-distributed-doc
+
+ -- Diane Trout <diane@ghic.org>  Sat, 21 Jan 2023 08:52:22 -0800
+
+dask.distributed (2022.02.0+ds.1-3) unstable; urgency=high
+
+  * Team Upload.
+  * Cherry-pick and tweak upstream patch to fix FTBFS
+    with py3.11 (Closes: #1026590)
+  * Remove python3-sparse from test deps
+
+ -- Nilesh Patra <nilesh@debian.org>  Thu, 05 Jan 2023 16:48:14 +0530
+
+dask.distributed (2022.02.0+ds.1-2) unstable; urgency=medium
+
+  * skip test that fails on 32bit
+
+ -- Diane Trout <diane@ghic.org>  Tue, 23 Aug 2022 17:06:52 -0700
+
+dask.distributed (2022.02.0+ds.1-1) unstable; urgency=medium
+
+  * New upstream release
+  * Refreshed patches
+  * Add python-pandas-doc to Build-Depends to build documentation
+  * Remove pass-host-to-local-cluster.patch applied upstream
+  * Disable pytest-asyncio-0.14.patch, set-client-asyncronous-earlier.patch
+    seem to be unneeded.
+  * dask.distributed should be more closely tied to the dask version.
+  * Add test_spillbuffer_remove_sizetest.patch to skip a failing upstream
+    removed test
+  * Skip two tests that were failing and removed upstream.
+  * Skip block of tests that fail in network limited builder
+  * Copy over some updated pytest settings from upstream's CI configuration
+
+ -- Diane Trout <diane@ghic.org>  Tue, 23 Aug 2022 15:13:27 -0700
+
+dask.distributed (2021.09.1+ds.1-3) unstable; urgency=medium
+
+  * add set-client-asyncronous-earlier.patch to work around a race condition
+    found by debian CI.
+  * Add python-3.10-loop.patch, to improve Python 3.10 compatibility. The
+    the loop parameter was removed from 3.10 high level asyncio API
+  * Skip test_gather_failing_cnn_error in CI tests to avoid a timeout error.
+
+ -- Diane Trout <diane@ghic.org>  Sun, 16 Jan 2022 11:56:02 -0800
+
+dask.distributed (2021.09.1+ds.1-2) unstable; urgency=medium
+
+  * Apply pass-host-to-local-cluster.patch. Resolves CVE-2021-42343
+
+ -- Diane Trout <diane@ghic.org>  Thu, 11 Nov 2021 13:28:18 -0800
+
+dask.distributed (2021.09.1+ds.1-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Refresh patches.
+  * Update Standards-Version. No changes needed.
+  * Bump python3-dask build dependency version.
+  * fix invalid profile name.
+  * Indicate patch forward status.
+
+ -- Diane Trout <diane@ghic.org>  Fri, 08 Oct 2021 19:19:50 -0700
+
+dask.distributed (2021.08.1+ds.1-1) unstable; urgency=medium
+
+  * New upstream release
+  * Test depends on python3-cryptography
+  * Refresh patches
+  * Add skip-bokeh-tests.patch to skip a test with obscure bokeh
+    dependency
+  * Add skip-directory-test-when-root.patch there's a test that
+    fails if accidently run with root privileges
+  * distributed no longer installs tests.
+    - pass path to test directory for build time.
+    - copy tests into installed directory for autopkgtests
+  * No longer includes coffeescript code
+  * Skip flaky tests too
+  * Run autopkgtests as unprivleded users after needing root for setup
+
+ -- Diane Trout <diane@ghic.org>  Fri, 27 Aug 2021 23:12:07 -0700
+
+dask.distributed (2021.01.0+ds.1-2) unstable; urgency=medium
+
+  * Add fall-back-to-ipv6-localhost.patch to work around ipv6 networking
+    issues on Debian's test infrastructure.
+
+ -- Diane Trout <diane@ghic.org>  Mon, 01 Feb 2021 12:08:19 -0800
+
+dask.distributed (2021.01.0+ds.1-1) unstable; urgency=medium
+
+  [ Stefano Rivera ]
+  * New upstream release. (Closes: #954507, 955772)
+  * Refresh patches.
+  * Bump Standards-Version to 4.5.1, no changes needed.
+  * Declare Rules-Requires-Root: no.
+  * "set -e" for shell loops in debian/rules.
+  * Upstream renamed directories containing .min.js, update Files-Excluded,
+    debiar/rules, debian/missing-sources.
+  * Bump python3-dask Build-Dep to >= 2020.12.0, following upstream.
+  * Explicitly specify the test directory, to avoid incorrect auto-detection.
+  * Patch: Support pytest-asyncio >= 0.14.
+
+  [ Ondřej Nový ]
+  * d/control: Update Maintainer field with new Debian Python Team
+    contact address.
+  * d/control: Update Vcs-* fields with new Debian Python Team Salsa
+    layout.
+
+  [ Diane Trout ]
+  * Fix typo in python-distributed-doc Depends line
+  * link html5shiv.min.js into _static (Closes: #959550)
+  * Add use-local-favicon.patch to avoid privacy leak
+  * Mark tests that require installation for easier skipping by adding
+    debian/patches/mark-test-require-installation.patch (Closes: #954507)
+  * Mark test that requires bokeh for easier skipping by adding
+    debian/patches/mark-test-requires-bokeh.patch
+  * There were still a few tests that didn't work in the buildd
+  * Remove lists of tests to skip in the autopkgtests since they all run
+  * Refresh patches
+  * Update patch descriptions and forwarded flag if missing
+  * Update to debhelper-compat 13
+  * Update path in d/copyright to missing javascript sources
+  * Update minimum build-dep versions for cloudpickle and toolz
+  * Make sure the favicon.ico file is not marked executable
+  * Make sure dask-worker-space directories created by tests are not
+    present in package
+  * Disable a few tests at build time
+  * Try running the autopkgtests with unrestricted networking
+
+ -- Diane Trout <diane@ghic.org>  Sat, 30 Jan 2021 22:55:04 -0800
+
+dask.distributed (2.10.0+ds.1-3) unstable; urgency=medium
+
+  * Disable test_idle_timeout as test failed in buildd
+
+ -- Diane Trout <diane@ghic.org>  Sun, 01 Mar 2020 17:25:58 -0800
+
+dask.distributed (2.10.0+ds.1-2) unstable; urgency=medium
+
+  * Remove python3-pynvml as a build dependency as it's platorm specific
+
+ -- Diane Trout <diane@ghic.org>  Sat, 29 Feb 2020 19:48:37 -0800
+
+dask.distributed (2.10.0+ds.1-1) unstable; urgency=medium
+
+  [ Ondřej Nový ]
+  * Use debhelper-compat instead of debian/compat.
+  * Bump Standards-Version to 4.4.1.
+
+  [ Diane Trout ]
+  * New upstream release
+  * Update Standards-Version. No changes needed.
+  * Upstream changed location of embedded javascript export_tool.js file
+  * Require python3-dask 2.9.0
+  * Use pytest and add additional dependencies for build time tests
+  * Add python3-sphinx-click build dependency for doc generation
+  * Update minimum tornado version to 5
+  * Refresh patches
+  * Update paths to build export_tool.js
+  * Help the pytest collector avoid collecting test utilities
+  * add pytest timeout as one test doesn't exit on its own
+  * Skip running tests that fail in debian build environment
+  * Use youtube-nocookie for videos to at least minimize the privacy leak
+  * Skip tests that fail in autopkgtest
+  * Only fail if tests fail, py.test has a non-zero exit code on exceptions
+    which sometimes happens during test shutdown
+  * Import the readable prebuilt version of anime.js into missing-sources and
+    build a minified version
+  * Import the readable prebuilt version of reconnecting-websocket.js and
+    build the minified version
+  * Add dh_fixperms to fix a .ico marked executable
+
+ -- Diane Trout <diane@ghic.org>  Thu, 27 Feb 2020 19:56:13 -0800
+
+dask.distributed (1.25.0+ds.1-1) unstable; urgency=medium
+
+  [ Ondřej Nový ]
+  * Use 'python3 -m sphinx' instead of sphinx-build for building docs
+
+  [ Diane Trout ]
+  * New upstream version 1.25.0+ds.1
+  * Add override-worker-test, uses AUTOPKGTEST_TMP to find an expected file
+  * Use dpkg-parsechangelog to set versioneer version number
+  * Use dask-sphinx-theme instead of sphinx-rtd-theme
+  * Refresh patches
+  * Remove deprecated needs-recommends and update list of test dependencies
+  * Add larger-keys.patch to update x509 keys to 2048 bit/SHA256
+  * Skip a few problematic tests
+  * Update minimum dask build-depends version
+
+ -- Diane Trout <diane@ghic.org>  Mon, 17 Dec 2018 22:25:37 -0800
+
+dask.distributed (1.21.8+ds.1-1) unstable; urgency=medium
+
+  [ Ondřej Nový ]
+  * d/control: Set Vcs-* to salsa.debian.org
+  * d/tests: Use AUTOPKGTEST_TMP instead of ADTTMP
+  * d/control: Remove ancient X-Python-Version field
+  * d/control: Remove ancient X-Python3-Version field
+
+  [ Diane Trout ]
+  * New upstream version 1.21.8+ds.1
+  * Remove extend-to-asyncio and robustly-close-localcluster, applied upstream
+  * Use installed copy of source tree for running tests
+  * Remove archaic Python version headers
+  * Disable ipywidget testing for now, Debian version is too old
+  * Update Standards-Version to 4.1.4. No Changes needed.
+  * Remove currently unnecessary Python3-Version
+  * Update build dependency versions from requirements.txt
+  * Don't compress changelog.html so the documentation hyperlinks work
+  * Reset permissions on test_utils_test.py
+  * Install changelog.rst as the upstream changelog
+  * Fix path to numpy documentation package
+  * Replace image links in documentation with local copies
+
+ -- Diane Trout <diane@ghic.org>  Sat, 19 May 2018 13:55:19 -0700
+
+dask.distributed (1.20.2+ds.1-2) unstable; urgency=medium
+
+  * Add patch robustly-close-localcluster.patch and
+    extend-to-asyncio.patch.
+    - These two patches fix autopkgtests failing because
+      of cleanup problems.
+
+ -- Diane Trout <diane@ghic.org>  Thu, 21 Dec 2017 11:27:35 -0800
+
+dask.distributed (1.20.2+ds.1-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Add sphinx-rtd-theme-common dependency to
+    python-distributed-doc. (Closes: #872224)
+  * Use Debian doc packages for intersphinx objects.inv files.
+  * Add !nodoc build profile.
+  * Update Standards-Version to 4.1.2. No changes needed.
+  * Add patch description to use-local-intersphinx-inventory.patch
+  * Improve autopkgtest runner
+    - copy conftest.py to enable the custom py.test plugins.
+    - Add PYTEST_OPTIONS from upstreams travis test runner.
+  * Remove now unecessary Testsuite header
+
+ -- Diane Trout <diane@ghic.org>  Thu, 12 Oct 2017 20:56:29 -0700
+
+dask.distributed (1.18.0+ds.1-1) unstable; urgency=medium
+
+  [ Diane Trout ]
+  * New upstream release
+  * Update Build-dependencies
+    - add python3-sortedcollections
+    - set minimum versions for python3-{click,dask,zict}
+  * Update tests/control
+    - add IPython/Jupyter components so that gets tested
+
+  [ Ghislain Antony Vaillant ]
+  * Fixup VCS URIs
+  * Fixup filenamemangle regex
+
+  [ Diane Trout ]
+  * New upstream version 1.18.0+ds.1
+  * Delete unneeded file
+  * New upstream release
+  * Update build-dependencies
+  * Update tests/control with IPython/Jupyter dependencies
+  * Upstream unnecessarily marks test runner as executable
+  * Add d/rules target to update cached intersphinx inventory files
+  * Migrate to git-buildpackage
+  * Provide & use downloaded copies of the intersphinx inventory files
+  * Recommend python3-yaml as its used for the distributed config files
+  * dask-worker needs locale variables set to run in test environment.
+  * Install more test dependencies
+
+ -- Diane Trout <diane@ghic.org>  Tue, 01 Aug 2017 14:18:35 -0700
+
+dask.distributed (1.14.3+ds.1-1) unstable; urgency=low
+
+  * Initial packaging. (Closes: 847524)
+
+ -- Diane Trout <diane@ghic.org>  Wed, 07 Dec 2016 10:38:33 -0800

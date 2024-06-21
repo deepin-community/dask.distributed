@@ -1,0 +1,17 @@
+Description: fix a privacy breach by using Debian provided CSS file.
+Author: Étienne Mollier <emollier@debian.org>
+Forwarded: not-needed
+Last-Update: 2024-06-16
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- dask.distributed.orig/distributed/http/templates/main.html
++++ dask.distributed/distributed/http/templates/main.html
+@@ -4,7 +4,7 @@
+   <meta charset="utf-8">
+   </meta>
+   <title> {{title}} </title>
+-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.6.0/css/bulma.min.css" media="all" />
++  <link rel="stylesheet" href="file:///usr/share/bulma/css/bulma.min.css" media="all" />
+   <link rel="stylesheet" href="{{ rel_path_statics }}/statics/css/sortable.min.css" />
+   <link rel="shortcut icon" href="{{ rel_path_statics }}/statics/images/favicon.ico" />
+ 

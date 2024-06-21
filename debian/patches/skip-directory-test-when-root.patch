@@ -1,0 +1,15 @@
+Author: Diane Trout <diane@ghic.org>
+Description: Skip testing when run as root.
+Forwarded: https://github.com/dask/distributed/issues/5404
+
+--- dask.distributed.orig/distributed/tests/test_worker.py
++++ dask.distributed/distributed/tests/test_worker.py
+@@ -1854,6 +1854,8 @@
+     assert not n.process.is_alive()
+ 
+ 
++@pytest.mark.skipif(not os.access("/", os.W_OK),
++                    reason="skip if we have elevated privileges")
+ @gen_cluster(nthreads=[])
+ async def test_bad_local_directory(s):
+     try:
