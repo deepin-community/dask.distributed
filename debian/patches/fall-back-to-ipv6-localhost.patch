@@ -1,18 +1,19 @@
 Author: Diane Trout <diane@ghic.org>
-Description: On Debian Test runners the ivp6 loop back interface is
+Author: Colin Watson <cjwatson@debian.org>
+Description: On Debian Test runners the ipv6 loop back interface is
  available so dask.distributed thinks it has ipv6 access, but it
  doesn't have a routable address so the lookup to the well known IPv6
  address fails, and the hostname doesn't have an ipv6 address associated
  with it so the fallback to gethostname() also fails.
  This adds a further fallback to the name localhost.
-Forwarded: not yet
+Forwarded: not-needed
 
---- a/distributed/utils.py
-+++ b/distributed/utils.py
-@@ -183,10 +183,14 @@
-             "reaching %r, defaulting to hostname: %s" % (host, e),
-             RuntimeWarning,
-         )
+--- dask.distributed.orig/distributed/utils.py
++++ dask.distributed/distributed/utils.py
+@@ -171,10 +171,14 @@
+ @toolz.memoize
+ def _get_ip(host, port, family):
+     def hostname_fallback():
 -        addr_info = socket.getaddrinfo(
 -            socket.gethostname(), port, family, socket.SOCK_DGRAM, socket.IPPROTO_UDP
 -        )[0]
@@ -25,6 +26,16 @@ Forwarded: not yet
 +                return addr_info[4][0]
 +            except OSError as e:
 +                warnings.warn("Unable to use address for %s because %s" % (name, e))
-     finally:
-         sock.close()
  
+     # By using a UDP socket, we don't actually try to connect but
+     # simply select the local address through which *host* is reachable.
+--- dask.distributed.orig/pyproject.toml
++++ dask.distributed/pyproject.toml
+@@ -126,6 +126,7 @@ filterwarnings = [
+     '''ignore:unclosed transport <asyncio\.sslproto\..*:ResourceWarning''',
+     '''ignore:unclosed cluster SSHCluster.*:ResourceWarning''',
+     '''ignore:Couldn't detect a suitable IP address for reaching '2001.4860.4860..8888', defaulting to hostname. \[Errno 65\] No route to host:RuntimeWarning''',
++    '''ignore:Couldn't detect a suitable IP address for reaching '8\.8\.8\.8', defaulting to hostname. \[Errno 101\] Network is unreachable:RuntimeWarning''',
+     '''ignore:Dashboard and Scheduler are using the same server on port.*:RuntimeWarning''',
+     '''ignore:coroutine 'BaseTCPConnector.connect' was never awaited:RuntimeWarning''',
+     '''ignore:coroutine 'Client\._start' was never awaited:RuntimeWarning''',

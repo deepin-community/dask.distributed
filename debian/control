@@ -4,10 +4,15 @@ Uploaders: Diane Trout <diane@ghic.org>
 Section: python
 Priority: optional
 Build-Depends: debhelper-compat (= 13),
-               dh-python,
+               dh-sequence-python3,
+               dh-sequence-sphinxdoc <!nodoc>,
                libjs-sortable-tablesort,
-               python3-all,
                pybuild-plugin-pyproject,
+               python-dask-doc <!nodoc>,
+               python-fsspec-doc <!nodoc>,
+               python-numpy-doc <!nodoc>,
+               python-pandas-doc <!nodoc>,
+               python3-all,
                python3-click (>= 6.6),
                python3-cloudpickle (>= 1.5.0),
                python3-cryptography <!nocheck>,
@@ -16,16 +21,18 @@ Build-Depends: debhelper-compat (= 13),
 # and notably [2].
 # [1]: https://lists.debian.org/debian-python/2024/06/msg00047.html
 # [2]: https://lists.debian.org/debian-python/2024/06/msg00051.html
-               python3-dask (>= 2024.5.2),
-               python3-dask (<< 2024.5.2.1~),
+               python3-dask (<< 2024.12.1.1~),
+               python3-dask (>= 2024.12.1),
+               python3-dask-sphinx-theme <!nodoc>,
                python3-doc <!nodoc>,
+               python3-jinja2,
                python3-jupyter-server (>= 1.23.3-2) <!nocheck>,
                python3-locket,
                python3-msgpack,
-               python3-numpy <!nocheck>,
-               python3-numpydoc,
-               python3-pandas <!nocheck>,
-               python-pandas-doc <!nodoc>,
+               python3-numpy <!nocheck> <!nodoc>,
+               python3-numpydoc <!nodoc>,
+               python3-packaging,
+               python3-pandas <!nocheck> <!nodoc>,
                python3-psutil,
                python3-pytest,
                python3-pytest-asyncio,
@@ -33,18 +40,18 @@ Build-Depends: debhelper-compat (= 13),
                python3-pytest-timeout,
                python3-setuptools,
                python3-sortedcollections,
-               python3-sphinx,
-               python3-sphinx-click,
-               python3-dask-sphinx-theme <!nodoc>,
+               python3-sphinx <!nodoc>,
+               python3-sphinx-click <!nodoc>,
                python3-sphinx-design <!nodoc>,
                python3-tblib,
                python3-toolz (>= 0.8.2),
                python3-tornado (>= 5),
+               python3-urllib3,
                python3-versioneer,
                python3-yaml,
                python3-zict (>= 3.0.0),
                tzdata-legacy,
-               uglifyjs,
+               uglifyjs
 Standards-Version: 4.7.0
 Homepage: https://distributed.readthedocs.io/en/latest/
 Vcs-Git: https://salsa.debian.org/python-team/packages/dask.distributed.git
@@ -54,11 +61,13 @@ Testsuite: autopkgtest-pkg-pybuild
 
 Package: python3-distributed
 Architecture: all
-Depends: ${misc:Depends},
-         ${python3:Depends},
-         python3-dask (>= 2024.5.2),
-         python3-dask (<< 2024.5.2.1~),
-Recommends: python3-pandas, python3-yaml
+Depends: python3-dask (<< 2024.12.1.1~),
+         python3-dask (>= 2024.12.1),
+         ${misc:Depends},
+         ${python3:Depends}
+Recommends: python3-pandas,
+            python3-yaml
+Suggests: python-distributed-doc
 Description: Dask Distributed computing for Python 3
  Dask.distributed is a lightweight library for distributed computing in
  Python. It extends both the concurrent.futures and dask APIs to
@@ -70,11 +79,20 @@ Package: python-distributed-doc
 Architecture: all
 Multi-Arch: foreign
 Section: doc
-Depends: ${misc:Depends}, ${sphinxdoc:Depends},
-         sass-stylesheets-bulma
+Depends: python-dask-doc,
+         python-fsspec-doc,
+         python-numpy-doc,
+         python-pandas-doc,
+         python3-doc,
+         sass-stylesheets-bulma,
+         ${misc:Depends},
+         ${sphinxdoc:Depends}
+Suggests: python3-distributed
+Built-Using: ${sphinxdoc:Built-Using}
 Description: Dask Distributed computing documentation
  Dask.distributed is a lightweight library for distributed computing in
  Python. It extends both the concurrent.futures and dask APIs to
  moderate sized clusters.
  .
  This contains the documentation
+Build-Profiles: <!nodoc>

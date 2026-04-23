@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 
-from distributed import Nanny, Scheduler, SchedulerPlugin, Worker, get_worker
+from distributed import Nanny, Scheduler, SchedulerPlugin, Worker
 from distributed.protocol.pickle import dumps
 from distributed.utils_test import captured_logger, gen_cluster, gen_test, inc
 
@@ -436,26 +436,6 @@ async def test_unregister_scheduler_plugin_from_client(c, s, a, b):
 
 
 @gen_cluster(client=True)
-async def test_log_event_plugin(c, s, a, b):
-    class EventPlugin(SchedulerPlugin):
-        async def start(self, scheduler: Scheduler) -> None:
-            self.scheduler = scheduler
-            self.scheduler._recorded_events = list()  # type: ignore
-
-        def log_event(self, name, msg):
-            self.scheduler._recorded_events.append((name, msg))
-
-    await c.register_plugin(EventPlugin())
-
-    def f():
-        get_worker().log_event("foo", 123)
-
-    await c.submit(f)
-
-    assert ("foo", 123) in s._recorded_events
-
-
-@gen_cluster(client=True)
 async def test_register_plugin_on_scheduler(c, s, a, b):
     class MyPlugin(SchedulerPlugin):
         async def start(self, scheduler: Scheduler) -> None:
@@ -513,6 +493,7 @@ async def test_update_graph_hook_simple(c, s, a, b):
             annotations,
             priority,
             dependencies,
+            stimulus_id,
             **kwargs,
         ) -> None:
             assert scheduler is s
@@ -525,6 +506,7 @@ async def test_update_graph_hook_simple(c, s, a, b):
             assert len(priority) == 1
             assert isinstance(priority["foo"], tuple)
             assert dependencies == {"foo": set()}
+            assert stimulus_id is not None
             self.success = True
 
     plugin = UpdateGraph()
@@ -553,6 +535,7 @@ async def test_update_graph_hook_complex(c, s, a, b):
             annotations,
             priority,
             dependencies,
+            stimulus_id,
             **kwargs,
         ) -> None:
             assert scheduler is s
@@ -573,6 +556,7 @@ async def test_update_graph_hook_complex(c, s, a, b):
                 assert k in dependencies
             assert dependencies["f1"] == set()
             assert dependencies["sum"] == {"f1", "f3"}
+            assert stimulus_id is not None
 
             self.success = True
 

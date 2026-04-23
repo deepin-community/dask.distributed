@@ -1,10 +1,10 @@
 Author: Diane Trout <diane@ghic.org>
 Description: this function ultimately depends on bokeh so needed a skip
-Forward: no
+Forwarded: not-needed
 
 --- dask.distributed.orig/distributed/tests/test_client.py
 +++ dask.distributed/distributed/tests/test_client.py
-@@ -7301,6 +7301,7 @@
+@@ -7050,6 +7050,7 @@
  @gen_cluster(client=True, nthreads=[("127.0.0.1", 1)])
  async def test_get_client_functions_spawn_clusters(c, s, a):
      # see gh4565

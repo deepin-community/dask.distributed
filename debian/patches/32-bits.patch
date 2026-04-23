@@ -1,0 +1,30 @@
+Description: account for result discrepancy in test result on 32-bit.
+Author: Étienne Mollier <emollier@debian.org>
+Forwarded: not-needed
+Last-Update: 2024-07-02
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- dask.distributed.orig/distributed/tests/test_spans.py
++++ dask.distributed/distributed/tests/test_spans.py
+@@ -1,7 +1,7 @@
+ from __future__ import annotations
+ 
+ import asyncio
+-
++import platform
+ import pytest
+ 
+ import dask
+@@ -255,7 +255,11 @@
+         "add",
+     }
+ 
+-    assert root.nbytes_total == 240
++    (bits, _) = platform.architecture()
++    if bits == '32bit':
++        assert root.nbytes_total == 224
++    else:  # assuming 64bit architecture
++        assert root.nbytes_total == 240
+     assert root.duration > 0
+     assert root.all_durations["compute"] > 0
+     assert t0 < root.enqueued < root.start < root.stop < t1

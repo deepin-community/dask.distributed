@@ -5,6 +5,15 @@ Last-Update: 2023-12-31
 
 --- a/docs/source/conf.py
 +++ b/docs/source/conf.py
+@@ -86,7 +86,7 @@
+ #
+ # This is also used if you do content translation via gettext catalogs.
+ # Usually you set "language" from the command line for these cases.
+-language = None
++language = "en"
+ 
+ # There are two options for replacing |today|: either, you set today to some
+ # non-false value, then it is used:
 @@ -385,8 +385,8 @@
  # Link to GitHub issues and pull requests using :pr:`1234` and :issue:`1234`
  # syntax

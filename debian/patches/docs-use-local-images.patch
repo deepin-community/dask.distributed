@@ -1,8 +1,8 @@
 From: Diane Trout <diane@ghic.org>
 Date: Sat, 26 Dec 2020 16:55:39 -0800
 Subject: Patch image links to use local copies
+Forwarded: not-needed
 
-Forwarded: No
 ---
  docs/source/diagnosing-performance.rst | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)

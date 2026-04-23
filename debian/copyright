@@ -17,7 +17,9 @@ Copyright: Copyright (c) 2015-2016, Continuum Analytics, Inc. and contributors
 License: BSD-3-Clause
 
 Files: debian/*
-Copyright: 2016 Diane Trout <diane@ghic.org>
+Copyright: 2016- Diane Trout <diane@ghic.org>
+  2024 Étienne Mollier <emollier@debian.org>
+  2024 Julian Gilbey <jdg@debian.org>
 License: Expat
 
 Files: debian/missing-sources/distributed/http/static/js/anime.js
