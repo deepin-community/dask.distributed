@@ -38,7 +38,6 @@ import dask
 from dask.typing import Key
 
 from distributed import Event, Scheduler, system
-from distributed import versions as version_module
 from distributed.batched import BatchedSend
 from distributed.client import Client, _global_clients, default_client
 from distributed.comm import Comm
@@ -55,7 +54,7 @@ from distributed.core import (
 )
 from distributed.deploy import SpecCluster
 from distributed.diagnostics.plugin import WorkerPlugin
-from distributed.metrics import context_meter, time
+from distributed.metrics import _WindowsTime, context_meter, time
 from distributed.nanny import Nanny
 from distributed.node import ServerNode
 from distributed.proctitle import enable_proctitle_on_children
@@ -132,9 +131,12 @@ def loop(loop_in_thread):
 @pytest.fixture
 def loop_in_thread(cleanup):
     loop_started = concurrent.futures.Future()
-    with concurrent.futures.ThreadPoolExecutor(
-        1, thread_name_prefix="test IOLoop"
-    ) as tpe, config_for_cluster_tests():
+    with (
+        concurrent.futures.ThreadPoolExecutor(
+            1, thread_name_prefix="test IOLoop"
+        ) as tpe,
+        config_for_cluster_tests(),
+    ):
 
         async def run():
             io_loop = IOLoop.current()
@@ -806,24 +808,25 @@ async def start_cluster(
 
 
 def check_invalid_worker_transitions(s: Scheduler) -> None:
-    if not s.events.get("invalid-worker-transition"):
+    if not s.get_events("invalid-worker-transition"):
         return
 
-    for _, msg in s.events["invalid-worker-transition"]:
+    for _, msg in s.get_events("invalid-worker-transition"):
         worker = msg.pop("worker")
         print("Worker:", worker)
         print(InvalidTransition(**msg))
 
     raise ValueError(
-        "Invalid worker transitions found", len(s.events["invalid-worker-transition"])
+        "Invalid worker transitions found",
+        len(s.get_events("invalid-worker-transition")),
     )
 
 
 def check_invalid_task_states(s: Scheduler) -> None:
-    if not s.events.get("invalid-worker-task-state"):
+    if not s.get_events("invalid-worker-task-state"):
         return
 
-    for _, msg in s.events["invalid-worker-task-state"]:
+    for _, msg in s.get_events("invalid-worker-task-state"):
         print("Worker:", msg["worker"])
         print("State:", msg["state"])
         for line in msg["story"]:
@@ -833,10 +836,10 @@ def check_invalid_task_states(s: Scheduler) -> None:
 
 
 def check_worker_fail_hard(s: Scheduler) -> None:
-    if not s.events.get("worker-fail-hard"):
+    if not s.get_events("worker-fail-hard"):
         return
 
-    for _, msg in s.events["worker-fail-hard"]:
+    for _, msg in s.get_events("worker-fail-hard"):
         msg = msg.copy()
         worker = msg.pop("worker")
         msg["exception"] = deserialize(msg["exception"].header, msg["exception"].frames)
@@ -877,7 +880,7 @@ def gen_cluster(
     clean_kwargs: dict[str, Any] | None = None,
     # FIXME: distributed#8054
     allow_unclosed: bool = True,
-    cluster_dump_directory: str | Literal[False] = "test_cluster_dump",
+    cluster_dump_directory: str | Literal[False] = False,
 ) -> Callable[[Callable], Callable]:
     from distributed import Client
 
@@ -900,6 +903,11 @@ def gen_cluster(
         start
         end
     """
+    if cluster_dump_directory:
+        warnings.warn(
+            "The `cluster_dump_directory` argument is being ignored and will be removed in a future version.",
+            DeprecationWarning,
+        )
     if nthreads is None:
         nthreads = [
             ("127.0.0.1", 1),
@@ -1018,14 +1026,6 @@ def gen_cluster(
                             # This stack indicates where the coro/test is suspended
                             task.print_stack(file=buffer)
 
-                            if cluster_dump_directory:
-                                await dump_cluster_state(
-                                    s=s,
-                                    ws=workers,
-                                    output_dir=cluster_dump_directory,
-                                    func_name=func.__name__,
-                                )
-
                             task.cancel()
                             while not task.cancelled():
                                 await asyncio.sleep(0.01)
@@ -1045,18 +1045,6 @@ def gen_cluster(
                             ) from None
 
                         except pytest.xfail.Exception:
-                            raise
-
-                        except Exception:
-                            if cluster_dump_directory and not has_pytestmark(
-                                test_func, "xfail"
-                            ):
-                                await dump_cluster_state(
-                                    s=s,
-                                    ws=workers,
-                                    output_dir=cluster_dump_directory,
-                                    func_name=func.__name__,
-                                )
                             raise
 
                     try:
@@ -1121,41 +1109,6 @@ def gen_cluster(
     return _
 
 
-async def dump_cluster_state(
-    s: Scheduler, ws: list[ServerNode], output_dir: str, func_name: str
-) -> None:
-    """A variant of Client.dump_cluster_state, which does not rely on any of the below
-    to work:
-
-    - Having a client at all
-    - Client->Scheduler comms
-    - Scheduler->Worker comms (unless using Nannies)
-    """
-    scheduler_info = s._to_dict()
-    workers_info: dict[str, Any]
-    versions_info = version_module.get_versions()
-
-    if not ws or isinstance(ws[0], Worker):
-        workers_info = {w.address: w._to_dict() for w in ws}
-    else:
-        workers_info = await s.broadcast(msg={"op": "dump_state"}, on_error="return")
-        workers_info = {
-            k: repr(v) if isinstance(v, Exception) else v
-            for k, v in workers_info.items()
-        }
-
-    state = {
-        "scheduler": scheduler_info,
-        "workers": workers_info,
-        "versions": versions_info,
-    }
-    os.makedirs(output_dir, exist_ok=True)
-    fname = os.path.join(output_dir, func_name) + ".yaml"
-    with open(fname, "w") as fh:
-        yaml.safe_dump(state, fh)  # Automatically convert tuples to lists
-    print(f"Dumped cluster state to {fname}")
-
-
 def validate_state(*servers: Scheduler | Worker | Nanny) -> None:
     """Run validate_state() on the Scheduler and all the Workers of the cluster.
     Excludes workers wrapped by Nannies and workers manually started by the test.
@@ -1185,8 +1138,8 @@ def _terminate_process(proc: subprocess.Popen, terminate_timeout: float) -> None
 def popen(
     args: list[str],
     capture_output: bool = False,
-    terminate_timeout: float = 30,
-    kill_timeout: float = 10,
+    terminate_timeout: float = 10,
+    kill_timeout: float = 5,
     **kwargs: Any,
 ) -> Iterator[subprocess.Popen[bytes]]:
     """Start a shell command in a subprocess.
@@ -1465,7 +1418,7 @@ def captured_handler(handler):
 
 
 @contextmanager
-def captured_context_meter() -> Generator[defaultdict[tuple, float], None, None]:
+def captured_context_meter() -> Generator[defaultdict[tuple, float]]:
     """Capture distributed.metrics.context_meter metrics into a local defaultdict"""
     # Don't cast int metrics to float
     metrics: defaultdict[tuple, float] = defaultdict(int)
@@ -1504,8 +1457,6 @@ def new_config_file(c: dict[str, Any]) -> Iterator[None]:
     """
     Temporarily change configuration file to match dictionary *c*.
     """
-    import yaml
-
     old_file = os.environ.get("DASK_CONFIG")
     fd, path = tempfile.mkstemp(prefix="dask-config")
     with os.fdopen(fd, "w") as f:
@@ -1590,6 +1541,7 @@ def get_server_ssl_context(
     ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH, cafile=get_cert(ca_file))
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_REQUIRED
+    ctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
     ctx.load_cert_chain(get_cert(certfile), get_cert(keyfile))
     return ctx
 
@@ -1600,6 +1552,7 @@ def get_client_ssl_context(
     ctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH, cafile=get_cert(ca_file))
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_REQUIRED
+    ctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
     ctx.load_cert_chain(get_cert(certfile), get_cert(keyfile))
     return ctx
 
@@ -1628,12 +1581,11 @@ def save_sys_modules():
     try:
         yield
     finally:
-        for i, elem in enumerate(sys.path):
+        for i, elem in reversed(list(enumerate(sys.path))):
             if elem not in old_path:
                 del sys.path[i]
-        for elem in sys.modules.keys():
-            if elem not in old_modules:
-                del sys.modules[elem]
+        for elem in sys.modules.keys() - old_modules.keys():
+            del sys.modules[elem]
 
 
 @contextmanager
@@ -2113,7 +2065,7 @@ def raises_with_cause(
     expected_cause: type[BaseException] | tuple[type[BaseException], ...],
     match_cause: str | None,
     *more_causes: type[BaseException] | tuple[type[BaseException], ...] | str | None,
-) -> Generator[None, None, None]:
+) -> Generator[None]:
     """Contextmanager to assert that a certain exception with cause was raised.
     It can travel the causes recursively by adding more expected, match pairs at the end.
 
@@ -2655,14 +2607,14 @@ def no_time_resync():
     """Temporarily disable the automatic resync of distributed.metrics._WindowsTime
     which, every 10 minutes, can cause time() to go backwards a few milliseconds.
 
-    On Linux and MacOSX, this fixture is a no-op.
+    On Linux, MacOSX, and Windows with Python 3.13+ this fixture is a no-op.
 
     See also
     --------
     NoSchedulerDelayWorker
     padded_time
     """
-    if WINDOWS:
+    if isinstance(time, _WindowsTime):
         time()  # Initialize or refresh delta
         bak = time.__self__.next_resync
         time.__self__.next_resync = float("inf")

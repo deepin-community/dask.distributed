@@ -1,7 +1,7 @@
 Author: Julian Gilbey <jdg@debian.org>
 Description: The memray module is not yet available in Debian.
   ITP bug: https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=1009970
-Forwarded: no
+Forwarded: not-needed
 
 --- a/docs/source/api.rst
 +++ b/docs/source/api.rst

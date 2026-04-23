@@ -1,0 +1,15 @@
+Description: Disable test which is known not to work on single-CPU systems
+Author: Santiago Vila <sanvila@debian.org>
+Bug-Debian: https://bugs.debian.org/1087408
+Last-Update: 2024-11-12
+
+--- a/distributed/tests/test_worker.py
++++ b/distributed/tests/test_worker.py
+@@ -3441,6 +3441,7 @@
+     await c.compute(s.size)
+ 
+ 
++@pytest.mark.skipif(os.cpu_count() == 1, reason="does not work on single-CPU machines")
+ @gen_cluster(nthreads=[])
+ async def test_do_not_block_event_loop_during_shutdown(s):
+     loop = asyncio.get_running_loop()

@@ -45,11 +45,10 @@ from tlz import keymap, pluck
 from tornado.ioloop import IOLoop
 
 import dask
-from dask.core import istask
+from dask._task_spec import GraphNode
 from dask.system import CPU_COUNT
 from dask.typing import Key
 from dask.utils import (
-    apply,
     format_bytes,
     funcname,
     key_split,
@@ -83,6 +82,7 @@ from distributed.diagnostics import nvml, rmm
 from distributed.diagnostics.plugin import WorkerPlugin, _get_plugin_name
 from distributed.diskutils import WorkSpace
 from distributed.exceptions import Reschedule
+from distributed.gc import disable_gc_diagnosis, enable_gc_diagnosis
 from distributed.http import get_handlers
 from distributed.metrics import context_meter, thread_time, time
 from distributed.node import ServerNode
@@ -97,11 +97,9 @@ from distributed.threadpoolexecutor import ThreadPoolExecutor
 from distributed.threadpoolexecutor import secede as tpe_secede
 from distributed.utils import (
     TimeoutError,
-    _maybe_complex,
     get_ip,
     has_arg,
     in_async_call,
-    is_python_shutting_down,
     iscoroutinefunction,
     json_load_robust,
     log_errors,
@@ -114,8 +112,7 @@ from distributed.utils import (
     thread_state,
     wait_for,
 )
-from distributed.utils_comm import gather_from_workers, pack_data, retry_operation
-from distributed.utils_perf import disable_gc_diagnosis, enable_gc_diagnosis
+from distributed.utils_comm import gather_from_workers, retry_operation
 from distributed.versions import get_versions
 from distributed.worker_memory import (
     DeprecatedMemoryManagerAttribute,
@@ -159,7 +156,6 @@ if TYPE_CHECKING:
     # Circular imports
     from distributed.client import Client
     from distributed.nanny import Nanny
-    from distributed.scheduler import T_runspec
 
     P = ParamSpec("P")
     T = TypeVar("T")
@@ -182,6 +178,27 @@ WORKER_ANY_RUNNING = {
     Status.paused,
     Status.closing_gracefully,
 }
+
+
+class RunTaskSuccess(OKMessage):
+    op: Literal["task-finished"]
+    result: object
+    nbytes: int
+    type: type
+    start: float
+    stop: float
+    thread: int
+
+
+class RunTaskFailure(ErrorMessage):
+    op: Literal["task-erred"]
+    result: object
+    nbytes: int
+    type: type
+    start: float
+    stop: float
+    thread: int
+    actual_exception: BaseException | Exception
 
 
 class GetDataBusy(TypedDict):
@@ -525,6 +542,7 @@ class Worker(BaseWorker, ServerNode):
         ###################################
         # Parameters to Server
         scheduler_sni: str | None = None,
+        WorkerStateClass: type = WorkerState,
         **kwargs,
     ):
         if reconnect is not None:
@@ -771,7 +789,7 @@ class Worker(BaseWorker, ServerNode):
             transfer_incoming_bytes_limit = int(
                 self.memory_manager.memory_limit * transfer_incoming_bytes_fraction
             )
-        state = WorkerState(
+        state = WorkerStateClass(
             nthreads=nthreads,
             data=self.memory_manager.data,
             threads=self.threads,
@@ -1029,23 +1047,22 @@ class Worker(BaseWorker, ServerNode):
             spilled_memory, spilled_disk = 0, 0
 
         # Send Fine Performance Metrics
-        # Make sure we do not yield the event loop between the moment we parse
-        # self.digests_total_since_heartbeat to send it to the scheduler and the moment
-        # we clear it!
+        # Swap the dictionary to avoid updates while we iterate over it
+        digests_total_since_heartbeat = self.digests_total_since_heartbeat
+        self.digests_total_since_heartbeat = defaultdict(int)
+
         spans_ext: SpansWorkerExtension | None = self.extensions.get("spans")
         if spans_ext:
             # Send metrics with disaggregated span_id
-            spans_ext.collect_digests()
+            spans_ext.collect_digests(digests_total_since_heartbeat)
 
         # Send metrics with squashed span_id
         # Don't cast int metrics to float
         digests: defaultdict[Hashable, float] = defaultdict(int)
-        for k, v in self.digests_total_since_heartbeat.items():
+        for k, v in digests_total_since_heartbeat.items():
             if isinstance(k, tuple) and k[0] in CONTEXTS_WITH_SPAN_ID:
                 k = k[:1] + k[2:]
             digests[k] += v
-
-        self.digests_total_since_heartbeat.clear()
 
         out: dict = dict(
             task_counts=self.state.task_counter.current_count(by_prefix=False),
@@ -1231,7 +1248,7 @@ class Worker(BaseWorker, ServerNode):
             *(
                 self.plugin_add(name=name, plugin=plugin)
                 for name, plugin in response["worker-plugins"].items()
-            )
+            ),
         )
 
         logger.info("        Registered to: %26s", self.scheduler.address)
@@ -1562,12 +1579,7 @@ class Worker(BaseWorker, ServerNode):
         # Cancel async instructions
         await BaseWorker.close(self, timeout=timeout)
 
-        teardowns = [
-            plugin.teardown(self)
-            for plugin in self.plugins.values()
-            if hasattr(plugin, "teardown")
-        ]
-        await asyncio.gather(*(td for td in teardowns if isawaitable(td)))
+        await asyncio.gather(*(self.plugin_remove(name) for name in self.plugins))
 
         for extension in self.extensions.values():
             if hasattr(extension, "close"):
@@ -1635,7 +1647,9 @@ class Worker(BaseWorker, ServerNode):
             # weird deadlocks particularly if the task that is executing in
             # the thread is waiting for a server reply, e.g. when using
             # worker clients, semaphores, etc.
-            if is_python_shutting_down():
+
+            # Are we shutting down the process?
+            if self._is_finalizing() or not threading.main_thread().is_alive():
                 # If we're shutting down there is no need to wait for daemon
                 # threads to finish
                 _close(executor=executor, wait=False)
@@ -1644,7 +1658,7 @@ class Worker(BaseWorker, ServerNode):
                     await asyncio.to_thread(
                         _close, executor=executor, wait=executor_wait
                     )
-                except RuntimeError:  # Are we shutting down the process?
+                except RuntimeError:
                     logger.error(
                         "Could not close executor %r by dispatching to thread. Trying synchronously.",
                         executor,
@@ -1870,13 +1884,14 @@ class Worker(BaseWorker, ServerNode):
 
         self.plugins[name] = plugin
 
-        logger.info("Starting Worker plugin %s" % name)
+        logger.info("Starting Worker plugin %s", name)
         if hasattr(plugin, "setup"):
             try:
                 result = plugin.setup(worker=self)
                 if isawaitable(result):
-                    result = await result
+                    await result
             except Exception as e:
+                logger.exception("Worker plugin %s failed to setup", name)
                 if not catch_errors:
                     raise
                 return error_message(e)
@@ -1891,8 +1906,9 @@ class Worker(BaseWorker, ServerNode):
             if hasattr(plugin, "teardown"):
                 result = plugin.teardown(worker=self)
                 if isawaitable(result):
-                    result = await result
+                    await result
         except Exception as e:
+            logger.exception("Worker plugin %s failed to teardown", name)
             return error_message(e)
 
         return {"status": "OK"}
@@ -2180,7 +2196,7 @@ class Worker(BaseWorker, ServerNode):
             elif separate_thread:
                 result = await self.loop.run_in_executor(
                     self.executors["actor"],
-                    apply_function_actor,
+                    _run_actor,
                     func,
                     args,
                     kwargs,
@@ -2230,8 +2246,23 @@ class Worker(BaseWorker, ServerNode):
                 assert ts.state in ("executing", "cancelled", "resumed"), ts
             assert ts.run_spec is not None
 
-            function, args, kwargs = ts.run_spec
-            args2, kwargs2 = self._prepare_args_for_execution(ts, args, kwargs)
+            start = time()
+            data: dict[Key, Any] = {}
+            for dep in ts.dependencies:
+                dkey = dep.key
+                actors = self.state.actors
+                if actors and dkey in actors:
+                    from distributed.actor import Actor  # TODO: create local actor
+
+                    data[dkey] = Actor(type(actors[dkey]), self.address, dkey, self)
+                else:
+                    data[dkey] = self.data[dkey]
+
+            stop = time()
+            if stop - start > 0.005:
+                ts.startstops.append(
+                    {"action": "disk-read", "start": start, "stop": stop}
+                )
 
             assert ts.annotations is not None
             executor = ts.annotations.get("executor", "default")
@@ -2252,16 +2283,16 @@ class Worker(BaseWorker, ServerNode):
                 else contextlib.nullcontext()
             )
             span_ctx.__enter__()
-
+            run_spec = ts.run_spec
             try:
                 ts.start_time = time()
-                if iscoroutinefunction(function):
+
+                if ts.run_spec.is_coro:
                     token = _worker_cvar.set(self)
                     try:
-                        result = await apply_function_async(
-                            function,
-                            args2,
-                            kwargs2,
+                        result = await _run_task_async(
+                            ts.run_spec,
+                            data,
                             self.scheduler_delay,
                         )
                     finally:
@@ -2271,15 +2302,14 @@ class Worker(BaseWorker, ServerNode):
                     # e.g. thread synchronization overhead only, since thread-noncpu and
                     # thread-cpu inside the thread detract from it. However, it may
                     # become substantial in case of misalignment between the size of the
-                    # thread pool and the number of running tasks in the worker state
+                    # thread pool and the number of running tasks in the worker stater
                     # machine (e.g. https://github.com/dask/distributed/issues/5882)
                     with context_meter.meter("executor"):
                         result = await run_in_executor_with_context(
                             e,
-                            apply_function,
-                            function,
-                            args2,
-                            kwargs2,
+                            _run_task,
+                            ts.run_spec,
+                            data,
                             self.execution_state,
                             key,
                             self.active_threads,
@@ -2293,10 +2323,9 @@ class Worker(BaseWorker, ServerNode):
                     with context_meter.meter("executor"):
                         result = await self.loop.run_in_executor(
                             e,
-                            apply_function_simple,
-                            function,
-                            args2,
-                            kwargs2,
+                            _run_task_simple,
+                            ts.run_spec,
+                            data,
                             self.scheduler_delay,
                         )
             finally:
@@ -2321,13 +2350,13 @@ class Worker(BaseWorker, ServerNode):
                     stimulus_id=f"task-finished-{time()}",
                 )
 
-            task_exc = result["actual-exception"]
+            task_exc = result["actual_exception"]
             if isinstance(task_exc, Reschedule):
                 return RescheduleEvent(key=ts.key, stimulus_id=f"reschedule-{time()}")
             if (
                 self.status == Status.closing
                 and isinstance(task_exc, asyncio.CancelledError)
-                and iscoroutinefunction(function)
+                and run_spec.is_coro
             ):
                 # `Worker.cancel` will cause async user tasks to raise `CancelledError`.
                 # Since we cancelled those tasks, we shouldn't treat them as failures.
@@ -2340,19 +2369,21 @@ class Worker(BaseWorker, ServerNode):
                     key=ts.key, stimulus_id=f"cancelled-by-worker-close-{time()}"
                 )
 
-            logger.warning(
-                "Compute Failed\n"
-                "Key:       %s\n"
-                "Function:  %s\n"
-                "args:      %s\n"
-                "kwargs:    %s\n"
-                "Exception: %r\n",
-                key,
-                str(funcname(function))[:1000],
-                convert_args_to_str(args2, max_len=1000),
-                convert_kwargs_to_str(kwargs2, max_len=1000),
-                result["exception_text"],
-            )
+            if ts.state in ("executing", "long-running", "resumed"):
+                logger.error(
+                    "Compute Failed\n"
+                    "Key:       %s\n"
+                    "State:     %s\n"
+                    "Task:  %s\n"
+                    "Exception: %r\n"
+                    "Traceback: %r\n",
+                    key,
+                    ts.state,
+                    repr(run_spec)[:1000],
+                    result["exception_text"],
+                    result["traceback_text"],
+                )
+
             return ExecuteFailureEvent.from_exception(
                 result,
                 key=key,
@@ -2370,7 +2401,7 @@ class Worker(BaseWorker, ServerNode):
             #   _prepare_args_for_execution() to raise KeyError;
             # - A dependency was unspilled but failed to deserialize due to a bug in
             #   user-defined or third party classes.
-            if ts.state == "executing":
+            if ts.state in ("executing", "long-running"):
                 logger.error(
                     f"Exception during execution of task {key!r}",
                     exc_info=True,
@@ -2381,27 +2412,6 @@ class Worker(BaseWorker, ServerNode):
                 run_id=run_id,
                 stimulus_id=f"execute-unknown-error-{time()}",
             )
-
-    def _prepare_args_for_execution(
-        self, ts: TaskState, args: tuple, kwargs: dict[str, Any]
-    ) -> tuple[tuple[object, ...], dict[str, object]]:
-        start = time()
-        data = {}
-        for dep in ts.dependencies:
-            k = dep.key
-            try:
-                data[k] = self.data[k]
-            except KeyError:
-                from distributed.actor import Actor  # TODO: create local actor
-
-                data[k] = Actor(type(self.state.actors[k]), self.address, k, self)
-        args2 = pack_data(args, data, key_types=(bytes, str, tuple))
-        kwargs2 = pack_data(kwargs, data, key_types=(bytes, str, tuple))
-        stop = time()
-        if stop - start > 0.005:
-            ts.startstops.append({"action": "disk-read", "start": start, "stop": stop})
-
-        return args2, kwargs2
 
     ##################
     # Administrative #
@@ -2605,6 +2615,14 @@ class Worker(BaseWorker, ServerNode):
             Worker._initialized_clients.add(self._client)
             if not asynchronous:
                 assert self._client.status == "running"
+
+        self.log_event(
+            "worker-get-client",
+            {
+                "client": self._client.id,
+                "timeout": timeout,
+            },
+        )
 
         return self._client
 
@@ -2880,34 +2898,6 @@ async def get_data_from_worker(
         rpc.reuse(worker, comm)
 
 
-def _normalize_task(task: Any) -> T_runspec:
-    if istask(task):
-        if task[0] is apply and not any(map(_maybe_complex, task[2:])):
-            return task[1], task[2], task[3] if len(task) == 4 else {}
-        elif not any(map(_maybe_complex, task[1:])):
-            return task[0], task[1:], {}
-
-    return execute_task, (task,), {}
-
-
-def execute_task(task):
-    """Evaluate a nested task
-
-    >>> inc = lambda x: x + 1
-    >>> execute_task((inc, 1))
-    2
-    >>> execute_task((sum, [1, 2, (inc, 3)]))
-    7
-    """
-    if istask(task):
-        func, args = task[0], task[1:]
-        return func(*map(execute_task, args))
-    elif isinstance(task, list):
-        return list(map(execute_task, task))
-    else:
-        return task
-
-
 cache_dumps: LRU[Callable[..., Any], bytes] = LRU(maxsize=100)
 
 _cache_lock = threading.Lock()
@@ -2928,16 +2918,15 @@ def dumps_function(func) -> bytes:
     return result
 
 
-def apply_function(
-    function,
-    args,
-    kwargs,
-    execution_state,
-    key,
-    active_threads,
-    active_threads_lock,
-    time_delay,
-):
+def _run_task(
+    task: GraphNode,
+    data: dict,
+    execution_state: dict,
+    key: Key,
+    active_threads: dict,
+    active_threads_lock: threading.Lock,
+    time_delay: float,
+) -> RunTaskSuccess | RunTaskFailure:
     """Run a function, collect information
 
     Returns
@@ -2954,7 +2943,7 @@ def apply_function(
     ):
         token = _worker_cvar.set(execution_state["worker"])
         try:
-            msg = apply_function_simple(function, args, kwargs, time_delay)
+            msg = _run_task_simple(task, data, time_delay)
         finally:
             _worker_cvar.reset(token)
 
@@ -2963,12 +2952,11 @@ def apply_function(
     return msg
 
 
-def apply_function_simple(
-    function,
-    args,
-    kwargs,
-    time_delay,
-):
+def _run_task_simple(
+    task: GraphNode,
+    data: dict,
+    time_delay: float,
+) -> RunTaskSuccess | RunTaskFailure:
     """Run a function, collect information
 
     Returns
@@ -2991,7 +2979,7 @@ def apply_function_simple(
         context_meter.meter("thread-cpu", func=thread_time),
     ):
         try:
-            result = function(*args, **kwargs)
+            result = task(data)
         except (SystemExit, KeyboardInterrupt):
             # Special-case these, just like asyncio does all over the place. They will
             # pass through `fail_hard` and `_handle_stimulus_from_task`, and eventually
@@ -3000,15 +2988,15 @@ def apply_function_simple(
             # Any other `BaseException` types would ultimately be ignored by asyncio if
             # raised here, after messing up the worker state machine along their way.
             raise
-        except BaseException as e:
+        except BaseException as e:  # noqa: B036
             # Users _shouldn't_ use `BaseException`s, but if they do, we can assume they
             # aren't a reason to shut down the whole system (since we allow the
             # system-shutting-down `SystemExit` and `KeyboardInterrupt` to pass through)
-            msg = error_message(e)
+            msg: RunTaskFailure = error_message(e)  # type: ignore
             msg["op"] = "task-erred"
-            msg["actual-exception"] = e
+            msg["actual_exception"] = e
         else:
-            msg = {
+            msg: RunTaskSuccess = {  # type: ignore
                 "op": "task-finished",
                 "status": "OK",
                 "result": result,
@@ -3022,12 +3010,11 @@ def apply_function_simple(
     return msg
 
 
-async def apply_function_async(
-    function,
-    args,
-    kwargs,
-    time_delay,
-):
+async def _run_task_async(
+    task: GraphNode,
+    data: dict,
+    time_delay: float,
+) -> RunTaskSuccess | RunTaskFailure:
     """Run a function, collect information
 
     Returns
@@ -3036,7 +3023,7 @@ async def apply_function_async(
     """
     with context_meter.meter("thread-noncpu", func=time) as m:
         try:
-            result = await function(*args, **kwargs)
+            result = await task(data)
         except (SystemExit, KeyboardInterrupt):
             # Special-case these, just like asyncio does all over the place. They will
             # pass through `fail_hard` and `_handle_stimulus_from_task`, and eventually
@@ -3045,17 +3032,17 @@ async def apply_function_async(
             # Any other `BaseException` types would ultimately be ignored by asyncio if
             # raised here, after messing up the worker state machine along their way.
             raise
-        except BaseException as e:
+        except BaseException as e:  # noqa: B036
             # NOTE: this includes `CancelledError`! Since it's a user task, that's _not_
             # a reason to shut down the worker.
             # Users _shouldn't_ use `BaseException`s, but if they do, we can assume they
             # aren't a reason to shut down the whole system (since we allow the
             # system-shutting-down `SystemExit` and `KeyboardInterrupt` to pass through)
-            msg = error_message(e)
+            msg: RunTaskFailure = error_message(e)  # type: ignore
             msg["op"] = "task-erred"
-            msg["actual-exception"] = e
+            msg["actual_exception"] = e
         else:
-            msg = {
+            msg: RunTaskSuccess = {  # type: ignore
                 "op": "task-finished",
                 "status": "OK",
                 "result": result,
@@ -3069,9 +3056,15 @@ async def apply_function_async(
     return msg
 
 
-def apply_function_actor(
-    function, args, kwargs, execution_state, key, active_threads, active_threads_lock
-):
+def _run_actor(
+    func: Callable,
+    args: tuple,
+    kwargs: dict,
+    execution_state: dict,
+    key: Key,
+    active_threads: dict,
+    active_threads_lock: threading.Lock,
+) -> Any:
     """Run a function, collect information
 
     Returns
@@ -3091,7 +3084,7 @@ def apply_function_actor(
     ):
         token = _worker_cvar.set(execution_state["worker"])
         try:
-            result = function(*args, **kwargs)
+            result = func(*args, **kwargs)
         finally:
             _worker_cvar.reset(token)
 

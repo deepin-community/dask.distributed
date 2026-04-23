@@ -1,18 +1,19 @@
 Author: Diane Trout <diane@ghic.org>
 Description: avoid tests that do things unlikely to work on 32-bit
  platforms, such as request large amounts of virtual memory.
+Forwarded: not-needed
 
 --- a/distributed/tests/test_worker_memory.py
 +++ b/distributed/tests/test_worker_memory.py
-@@ -8,6 +8,7 @@
- import threading
+@@ -7,6 +7,7 @@
+ import signal
  from collections import Counter, UserDict
  from time import sleep
 +import sys
  
  import psutil
  import pytest
-@@ -162,6 +163,10 @@
+@@ -156,6 +157,10 @@
      assert results == list(map(inc, range(10)))
  
  
@@ -25,15 +26,15 @@ Description: avoid tests that do things unlikely to work on 32-bit
      """Test failure to serialize triggered by computing a key which is individually
 --- a/distributed/http/worker/tests/test_worker_http.py
 +++ b/distributed/http/worker/tests/test_worker_http.py
-@@ -3,6 +3,7 @@
- import asyncio
- import json
+@@ -1,6 +1,7 @@
+ from __future__ import annotations
+ 
  from unittest import mock
 +import sys
  
  import pytest
- from tornado.httpclient import AsyncHTTPClient
-@@ -222,6 +223,9 @@
+ 
+@@ -230,6 +231,9 @@
      assert metrics["spilled"] == 0
  
  

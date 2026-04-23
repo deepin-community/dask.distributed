@@ -1,3 +1,88 @@
+dask.distributed (2024.12.1+ds-1) unstable; urgency=medium
+
+  * Team upload.
+  * New upstream release.
+    - Add support for Python 3.13 (closes: #1088286, #1090205).
+  * d/patches/fall-back-to-ipv6-localhost.patch: Also ignore a
+    RuntimeWarning from some tests.
+  * Run dask with a matching interpreter.
+
+ -- Colin Watson <cjwatson@debian.org>  Mon, 06 Jan 2025 15:41:14 +0000
+
+dask.distributed (2024.5.2+ds.1-8) unstable; urgency=medium
+
+  * Team upload.
+  * Disable dask theme for now.
+  * Disable test which is known not to work on single-CPU systems.
+    Closes: #1087408.
+
+ -- Santiago Vila <sanvila@debian.org>  Wed, 13 Nov 2024 00:08:00 +0100
+
+dask.distributed (2024.5.2+ds.1-7) unstable; urgency=medium
+
+  * Team upload
+  * Correctly enable all relevant tests in manual autopkgtest script
+  * Fix ignore path for autopkgtest-pkg-pybuild tests
+
+ -- Julian Gilbey <jdg@debian.org>  Thu, 29 Aug 2024 08:53:58 +0100
+
+dask.distributed (2024.5.2+ds.1-6) unstable; urgency=medium
+
+  * Team upload
+  * Ignore internet-requiring test files during build (missed during
+    earlier successful -4 build; now using "unshare" to check)
+  * Replace hand-crafted skipping script with pytest's built-in
+    --last-failed option for pytest reruns
+  * Improve DEP-3 patch headers
+
+ -- Julian Gilbey <jdg@debian.org>  Wed, 28 Aug 2024 22:29:33 +0100
+
+dask.distributed (2024.5.2+ds.1-5) unstable; urgency=medium
+
+  * Add two more network-requiring tests to excluded tests
+  * Rerun pytest on failed tests up to five time, copying approach in
+    spyder, pydevd and so on
+  * Reinstate 32-bit test skip patch
+  * Make patch headers DEP-3 compliant
+
+ -- Julian Gilbey <jdg@debian.org>  Tue, 27 Aug 2024 19:16:34 +0100
+
+dask.distributed (2024.5.2+ds.1-4) unstable; urgency=medium
+
+  * Team upload
+  * Skip some tests failing on armhf/armel with jupyter-server 2.14.2
+  * Set CRYPTOGRAPHY_OPENSSL_NO_LEGACY=1 for tests, otherwise they fail
+  * Run all tests during build, not just distributed/tests (this also
+    includes some reworking of d/rules)
+  * Fix autopkgtest error code detection (cosmetic only)
+  * Use unified test exclusion script, as in pydevd, and install required
+    test artefacts.  This has the advantage of collecting all of the test
+    exclusion information in a single place (and the
+    "mark-tests-require-installation" and "override-worker-test" patches
+    are consequently removed).  Also run slow tests on amd64 and arm64.
+  * Fix documentation building: intersphinx links now point to local
+    documentation copies
+  * Move documentation to /usr/share/doc/python3-distributed as
+    recommended by current Debian Policy
+
+ -- Julian Gilbey <jdg@debian.org>  Sun, 25 Aug 2024 22:40:12 +0100
+
+dask.distributed (2024.5.2+ds.1-3) unstable; urgency=medium
+
+  * Team upload.
+  * d/rules: skip test_fail_to_pickle_execute_1.
+    This test passes except that it fails reliably on debci.  This affects
+    most cpu architectures apart from arm64 and ppc64el.  This is not
+    reproducible when running tests locally, preventing effectively
+    addressing the root cause.
+  * 32-bits.patch: new: adjust test output on 32-bit systems.
+  * d/rules: skip tests timing out on riscv64 and s390x.
+  * fix-version.patch: new: ensure proper version is returned.
+    Thanks to Julian Gilbey (Closes: #1074795)
+  * d/rules: guard against version mismatch in version.py.
+
+ -- Étienne Mollier <emollier@debian.org>  Fri, 19 Jul 2024 21:56:00 +0200
+
 dask.distributed (2024.5.2+ds.1-2) unstable; urgency=medium
 
   * Team upload.

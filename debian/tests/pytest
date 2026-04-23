@@ -1,0 +1,54 @@
+#!/bin/bash
+set -e
+
+export LC_ALL=C.UTF-8
+export LANG=C.UTF-8
+PYTEST_OPTIONS="--verbose --timeout-method=signal --timeout=300 --durations=20 --color=no"
+
+# Run slow tests on amd64 and arm64 only
+arch=$(dpkg --print-architecture)
+case $arch in
+    amd64|arm64)
+	PYTEST_OPTIONS="$PYTEST_OPTIONS --runslow"
+	;;
+esac
+
+# This is needed for keras, though that dependency doesn't work right now.
+export THEANO_FLAGS="base_compiledir=$(pwd)"
+
+# This is needed for newer versions of OpenSSL
+export CRYPTOGRAPHY_OPENSSL_NO_LEGACY=1
+
+# The dask tests use the google dns servers as a default ipv6 address
+# disable exit on error for this command, as ping's failure indicates
+# that we don't have ipv6
+set +e
+ping6 -c 4 2001:4860:4860::8888 2>&1
+if [ $? -eq 0 ]; then
+    echo "Working ipv6 connectivity"
+else
+    echo "No external ipv6 connectivity"
+    export DISABLE_IPV6=1
+fi
+set -e
+
+cp pyproject.toml conftest.py $AUTOPKGTEST_TMP
+
+# FIXME: several tests are tripping on the missing dask_expr raising
+# FutureWarnings on dask.dataframe module import.  Setting configuration
+# option "dataframe.query-planning" option to False will not raise such
+# warning, but the way forward would probably be to package dask_expr.
+HOME="$AUTOPKGTEST_TMP"
+export HOME
+mkdir "${HOME}/.config/"
+echo '{"dataframe": {"query-planning": False}}' > "${HOME}/.config/dask"
+
+DEBIAN_DIR=$(pwd)/debian
+
+for py in $(py3versions -s)
+do
+    cd "$AUTOPKGTEST_TMP"
+    echo "Testing with $py:"
+    $DEBIAN_DIR/run-tests $DEBIAN_DIR/get-test-exclusions autopkgtest $py \
+      -m pytest -m "not avoid_ci" $PYTEST_OPTIONS --pyargs distributed
+done

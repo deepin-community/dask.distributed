@@ -38,6 +38,7 @@ from bokeh.models import (
     Range1d,
     ResetTool,
     Select,
+    TabPanel,
     Tabs,
     TapTool,
     Title,
@@ -53,7 +54,6 @@ from bokeh.transform import cumsum, factor_cmap, linear_cmap, stack
 from jinja2 import Environment, FileSystemLoader
 from tlz import curry, pipe, second, valmap
 from tlz.curried import concat, groupby, map
-from tornado import escape
 
 import dask
 from dask import config
@@ -74,10 +74,8 @@ from distributed.dashboard.components.shared import (
     ProfileTimePlot,
     SystemMonitor,
 )
-from distributed.dashboard.core import TabPanel
 from distributed.dashboard.utils import (
     _DATATABLE_STYLESHEETS_KWARGS,
-    BOKEH_VERSION,
     PROFILING,
     transpose,
     update,
@@ -91,7 +89,7 @@ from distributed.diagnostics.task_stream import colors as ts_color_lookup
 from distributed.metrics import time
 from distributed.scheduler import Scheduler
 from distributed.spans import SpansSchedulerExtension
-from distributed.utils import Log, log_errors
+from distributed.utils import Log, log_errors, url_escape
 
 if dask.config.get("distributed.dashboard.export-tool"):
     from distributed.dashboard.export_tool import ExportTool
@@ -199,7 +197,7 @@ class Occupancy(DashboardComponent):
                 "worker": [ws.address for ws in workers],
                 "ms": ms,
                 "color": color,
-                "escaped_worker": [escape.url_escape(ws.address) for ws in workers],
+                "escaped_worker": [url_escape(ws.address) for ws in workers],
                 "x": x,
                 "y": y,
             }
@@ -581,7 +579,7 @@ class WorkersMemory(DashboardComponent, MemoryColor):
             "color": color,
             "alpha": [1, 0.7, 0.4, 1] * len(workers),
             "worker": quadlist(ws.address for ws in workers),
-            "escaped_worker": quadlist(escape.url_escape(ws.address) for ws in workers),
+            "escaped_worker": quadlist(url_escape(ws.address) for ws in workers),
             "y": quadlist(range(len(workers))),
             "proc_memory": quadlist(procmemory),
             "managed": quadlist(managed),
@@ -732,7 +730,7 @@ class WorkersTransferBytes(DashboardComponent):
             ws.metrics["transfer"]["outgoing_bytes"] for ws in wss
         ]
         workers = [ws.address for ws in wss]
-        escaped_workers = [escape.url_escape(worker) for worker in workers]
+        escaped_workers = [url_escape(worker) for worker in workers]
 
         if wss:
             x_limit = max(
@@ -1840,7 +1838,7 @@ class CurrentLoad(DashboardComponent):
             "nprocessing-half": [np / 2 for np in nprocessing],
             "nprocessing-color": nprocessing_color,
             "worker": [ws.address for ws in workers],
-            "escaped_worker": [escape.url_escape(ws.address) for ws in workers],
+            "escaped_worker": [url_escape(ws.address) for ws in workers],
             "y": list(range(len(workers))),
         }
 
@@ -1972,12 +1970,12 @@ class StealingEvents(DashboardComponent):
     @without_property_validation
     @log_errors
     def update(self):
-        log = self.scheduler.get_events(topic="stealing")
-        current = len(self.scheduler.events["stealing"])
-        n = current - self.last
-
-        log = [log[-i][1][1] for i in range(1, n + 1) if log[-i][1][0] == "request"]
-        self.last = current
+        topic = self.scheduler._broker._topics["stealing"]
+        log = log = topic.events
+        n = min(topic.count - self.last, len(log))
+        if log:
+            log = [log[-i][1][1] for i in range(1, n + 1) if log[-i][1][0] == "request"]
+        self.last = topic.count
 
         if log:
             new = pipe(
@@ -2042,11 +2040,12 @@ class Events(DashboardComponent):
     @without_property_validation
     @log_errors
     def update(self):
-        log = self.scheduler.events[self.name]
-        n = self.scheduler.event_counts[self.name] - self.last
+        topic = self.scheduler._broker._topics[self.name]
+        log = topic.events
+        n = min(topic.count - self.last, len(log))
         if log:
             log = [log[-i] for i in range(1, n + 1)]
-        self.last = self.scheduler.event_counts[self.name]
+        self.last = topic.count
 
         if log:
             actions = []
@@ -2271,18 +2270,8 @@ class TaskGraph(DashboardComponent):
         self.edge_source = ColumnDataSource({"x": [], "y": [], "visible": []})
 
         filter = GroupFilter(column_name="visible", group="True")
-        if BOKEH_VERSION.major < 3:
-            filter_kwargs = {"filters": [filter]}
-        else:
-            filter_kwargs = {"filter": filter}
-        node_view = CDSView(**filter_kwargs)
-        edge_view = CDSView(**filter_kwargs)
-
-        # Bokeh >= 3.0 automatically infers the source to use
-        if BOKEH_VERSION.major < 3:
-            node_view.source = self.node_source
-            edge_view.source = self.edge_source
-
+        node_view = CDSView(filter=filter)
+        edge_view = CDSView(filter=filter)
         node_colors = factor_cmap(
             "state",
             factors=["waiting", "queued", "processing", "memory", "released", "erred"],
@@ -2381,7 +2370,7 @@ class TaskGraph(DashboardComponent):
                     continue
                 xx = x[key]
                 yy = y[key]
-                node_key.append(escape.url_escape(str(key)))
+                node_key.append(url_escape(str(key)))
                 node_x.append(xx)
                 node_y.append(yy)
                 node_state.append(task.state)
@@ -3342,15 +3331,15 @@ class TaskProgress(DashboardComponent):
         }
 
         for tp in self.scheduler.task_prefixes.values():
-            active_states = tp.active_states
-            if any(active_states.get(s) for s in state.keys()):
-                state["memory"][tp.name] = active_states["memory"]
-                state["erred"][tp.name] = active_states["erred"]
-                state["released"][tp.name] = active_states["released"]
-                state["processing"][tp.name] = active_states["processing"]
-                state["waiting"][tp.name] = active_states["waiting"]
-                state["queued"][tp.name] = active_states["queued"]
-                state["no_worker"][tp.name] = active_states["no-worker"]
+            states = tp.states
+            if any(states.get(s) for s in state.keys()):
+                state["memory"][tp.name] = states["memory"]
+                state["erred"][tp.name] = states["erred"]
+                state["released"][tp.name] = states["released"]
+                state["processing"][tp.name] = states["processing"]
+                state["waiting"][tp.name] = states["waiting"]
+                state["queued"][tp.name] = states["queued"]
+                state["no_worker"][tp.name] = states["no-worker"]
 
         state["all"] = {k: sum(v[k] for v in state.values()) for k in state["memory"]}
 
@@ -3923,9 +3912,11 @@ class Contention(DashboardComponent):
 
         # Format event loop as time and GIL (if configured) as %
         self.data["text"] = [
-            f"{x * 100:.1f}%"
-            if i % 2 and s.monitor.monitor_gil_contention
-            else format_time(x)
+            (
+                f"{x * 100:.1f}%"
+                if i % 2 and s.monitor.monitor_gil_contention
+                else format_time(x)
+            )
             for i, x in enumerate(self.data["values"])
         ]
         update(self.source, self.data)
@@ -4054,7 +4045,7 @@ class WorkerTable(DashboardComponent):
         "spilled_bytes",
     }
 
-    def __init__(self, scheduler, width=800, **kwargs):
+    def __init__(self, scheduler, **kwargs):
         self.scheduler = scheduler
         self.names = [
             "name",
@@ -4147,7 +4138,7 @@ class WorkerTable(DashboardComponent):
             columns=[columns[n] for n in table_names],
             reorderable=True,
             sortable=True,
-            width=width,
+            width_policy="max",
             index_position=None,
             **_DATATABLE_STYLESHEETS_KWARGS,
         )
@@ -4167,7 +4158,7 @@ class WorkerTable(DashboardComponent):
             columns=[extra_columns[n] for n in extra_names],
             reorderable=True,
             sortable=True,
-            width=width,
+            width_policy="max",
             index_position=None,
             **_DATATABLE_STYLESHEETS_KWARGS,
         )
@@ -4194,7 +4185,6 @@ class WorkerTable(DashboardComponent):
             x_range=(0, 1),
             y_range=(-0.1, 0.1),
             height=60,
-            width=width,
             tools="",
             min_border_right=0,
             **kwargs,
@@ -4224,7 +4214,6 @@ class WorkerTable(DashboardComponent):
             x_range=(0, 1),
             y_range=(-0.1, 0.1),
             height=60,
-            width=width,
             tools="",
             min_border_right=0,
             **kwargs,
@@ -4513,10 +4502,6 @@ _STYLES = {
     "box-shadow": "inset 1px 0 8px 0 lightgray",
     "overflow": "auto",
 }
-if BOKEH_VERSION.major < 3:
-    _BOKEH_STYLES_KWARGS = {"style": _STYLES}
-else:
-    _BOKEH_STYLES_KWARGS = {"styles": _STYLES}
 
 
 class SchedulerLogs:
@@ -4536,7 +4521,7 @@ class SchedulerLogs:
                 )
             )._repr_html_()
 
-        self.root = Div(text=logs_html, **_BOKEH_STYLES_KWARGS)
+        self.root = Div(text=logs_html, styles=_STYLES)
 
 
 @log_errors
@@ -4639,7 +4624,7 @@ def exceptions_doc(scheduler, extra, doc):
 
 @log_errors
 def workers_doc(scheduler, extra, doc):
-    table = WorkerTable(scheduler)
+    table = WorkerTable(scheduler, sizing_mode="stretch_width")
     table.update()
     add_periodic_callback(doc, table, 500)
     doc.title = "Dask: Workers"
