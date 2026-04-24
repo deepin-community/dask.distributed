@@ -19,3 +19,4 @@ fix-version.patch
 disable-dask-theme.patch
 single-cpu.patch
 dask-matching-interpreter.patch
+CVE-2026-23528.patch
