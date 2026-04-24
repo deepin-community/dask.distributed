@@ -1,3 +1,9 @@
+dask.distributed (2024.12.1+ds-1deepin1) unstable; urgency=medium
+
+  * CVE-2026-23528: Fix XSS vulnerability in dashboard proxy
+
+ -- lichenggang <lichenggang@uniontech.com>  Fri, 24 Apr 2026 11:22:04 +0800
+
 dask.distributed (2024.12.1+ds-1) unstable; urgency=medium
 
   * Team upload.
